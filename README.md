@@ -124,30 +124,55 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for diagrams and detailed com
 ### Prerequisites
 
 - Node.js 20+ (Next.js 16 requires it)
-- An LLM provider API key (OpenAI / Gemini / Ollama) — optional for the mock build
-- IT policy documents (Markdown) under `src/data/` for ingestion
+- (Optional, for the real RAG path) Docker Desktop + an OpenAI API key
 
-### Install
+### Path A — Mock mode (no API key, no Chroma)
 
 ```bash
-# Clone
-git clone https://github.com/travisezell/BUS4-118-Capstone.git
-cd BUS4-118-Capstone
-
-# Install dependencies
+git clone https://github.com/travisezell/BUS4-118-Capstone-.git
+cd BUS4-118-Capstone-
 npm install
-
-# Configure environment
-cp .env.example .env.local
-# then set LLM_PROVIDER, OPENAI_API_KEY (or GEMINI_API_KEY), CHROMA_URL
-
-# Run dev server
 npm run dev
 ```
 
-Visit `http://localhost:3000` in your browser.
+Visit `http://localhost:3000`. Agents run with deterministic mocks. The 12-scenario test suite (`npm test`) is the easiest way to verify the multi-agent pipeline works end-to-end.
 
-> **Note:** The prototype runs in **mock mode** by default — agents return realistic responses without calling external LLMs or vector stores. Set `LLM_PROVIDER` and an API key to enable real generation. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the pluggable-provider contract.
+### Path B — Real RAG (OpenAI embeddings + Chroma)
+
+```bash
+# 1. Install deps and start Chroma
+npm install
+docker compose up -d
+
+# 2. Configure environment
+cp .env.example .env.local
+# then edit .env.local and set:
+#   LLM_PROVIDER=openai
+#   OPENAI_API_KEY=sk-...
+#   VECTOR_STORE=chroma
+#   CHROMA_URL=http://localhost:8000
+
+# 3. Load IT docs into Chroma (load → chunk → embed → store)
+npm run ingest
+
+# 4. Run the dev server
+npm run dev
+```
+
+The ingest script reads `docs/kb/*.md`, splits each H2 section into a chunk, embeds it with `text-embedding-3-small`, and writes it to the `it-support-kb` Chroma collection. Re-running is safe — chunks upsert by stable ID.
+
+Verify the live setup at `http://localhost:3000/api/health`:
+
+```json
+{
+  "ok": true,
+  "llm":         { "provider": "openai", "chatModel": "gpt-4o-mini", "embeddingModel": "text-embedding-3-small" },
+  "vectorStore": { "backend": "chroma",  "chromaUrl": "http://localhost:8000" },
+  "mcpTools":    ["create_access_request", "create_account_ticket", "get_ticket_status", "update_ticket_with_note"]
+}
+```
+
+> **Heads up.** Tests intentionally run in mock mode so they don't need an API key or a running Chroma — that's why `npm test` works on a fresh clone. Path B is for the live demo.
 
 ---
 
@@ -187,11 +212,21 @@ src/
 tests/
   scenarios.test.ts      # 12 test scenarios (4 per flow)
 
+scripts/
+  ingest.ts              # Loads docs/kb/*.md → chunks → embeds → Chroma
+
 docs/
   ARCHITECTURE.md
   TESTING.md
   SCALING.md
   PRD.md                 # Product Requirements Document
+  kb/                    # Source IT documentation (markdown)
+    access-policies.md
+    account-guidance.md
+    ticket-faqs.md
+    general-it-faqs.md
+
+docker-compose.yml       # Chroma service for local development
 ```
 
 ---

@@ -1,0 +1,31 @@
+# Local development services for the IT Support Assistant.
+#
+# Usage:
+#   docker compose up -d        # start Chroma in the background
+#   docker compose down         # stop it
+#   docker compose logs -f      # tail Chroma logs
+#
+# Chroma persists its data in a named volume so embeddings survive a
+# `docker compose down`. Wipe with `docker volume rm bus4_chroma_data`.
+
+services:
+  chroma:
+    image: chromadb/chroma:0.5.20
+    container_name: bus4-chroma
+    ports:
+      - "8000:8000"
+    volumes:
+      - bus4_chroma_data:/chroma/chroma
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  bus4_chroma_data:
+    name: bus4_chroma_data

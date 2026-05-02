@@ -1,146 +1,141 @@
 # Group 5 · Multi-Agent IT Support Assistant
 
-An AI-powered internal IT support assistant that uses a multi-agent architecture, retrieval-augmented generation (RAG), and MCP-style tools to help employees resolve common IT requests through a single chat interface.
+**BUS 118S Capstone Project**
 
-> **Course:** BUS 118S Capstone — Group 5
-> **Repository:** [travisezell/BUS4-118-Capstone](https://github.com/travisezell/BUS4-118-Capstone-)
-
----
-
-## Problem Definition
-
-For everyday IT issues, employees bounce between multiple systems — searching a wiki, trying a portal, then opening a ticket or pinging IT even when the answer already exists in documentation. The result is long queues, duplicate tickets, and IT staff burning tier-1 capacity on highly repeatable problems like access requests, account lockouts, and ticket-status questions.
-
-Our system provides one front door. The user describes their problem in chat, and the assistant understands the request, looks up the right IT documentation, and either guides them through the fix or triggers a small support action (submit a request, check the status of an existing ticket) before escalating to a human if needed.
+An AI-powered internal IT support assistant that combines a multi-agent
+architecture, retrieval-augmented generation (RAG) over real IT
+documentation, and Model Context Protocol (MCP) tools to resolve common
+IT requests through a single chat interface.
 
 ---
 
-## What We Built
+## Problem
 
-A four-agent pipeline that runs end-to-end behind a single chat UI:
+For everyday IT issues, employees bounce between multiple systems —
+searching a wiki, trying a portal, and finally opening a ticket — even
+when the answer already exists in documentation. This creates long
+queues, duplicate tickets, and repetitive work for IT staff on highly
+repeatable problems: access requests, account lockouts, and ticket
+status questions.
 
-- **Intake Agent** — classifies the request into one of `access_help`, `account_help`, `ticket_status`, or `general_qa` and extracts entities (tool/app name, account identifier, ticket ID).
-- **Knowledge Agent** — runs RAG over IT documentation (policies, how-tos, FAQs) and produces a grounded, citation-aware answer.
-- **Workflow Agent** — calls MCP-style tools (`create_access_request`, `create_account_ticket`, `get_ticket_status`, `update_ticket_with_note`).
-- **Escalation Agent** — decides when not to auto-resolve and produces a structured handoff package for human IT.
-
-We focus on **three fully implemented IT flows** (Access Help, Account Help, Ticket Status) plus Q&A-only knowledge questions.
+Our system provides one front door: the user describes their problem in
+chat, the assistant understands the request, retrieves the relevant IT
+documentation, and either guides them through self-service or triggers a
+support action (submit a request, open a ticket, look up status) before
+escalating to a human only when needed.
 
 ---
 
-## Core IT Flows
+## What we built
 
-### 1. Access Help — "How do I get access to Tool X?"
+A 4-agent pipeline wired together by an orchestrator, with real RAG and
+real MCP tool integration.
 
-- User asks how to get access to a specific tool/app.
-- Intake Agent classifies as `access_help` and extracts the app name and user ID.
-- Knowledge Agent retrieves the access policy and any self-service steps.
-- If self-service is possible, the assistant returns step-by-step guidance.
-- If formal approval is required, Workflow Agent calls `create_access_request(app_name, user_id)` and returns a confirmation with a request ID.
-- Escalation Agent flags ambiguous, unsupported, or out-of-policy cases for human IT.
+| Agent | Responsibility |
+|---|---|
+| **Intake** | Classifies the user message into one of `access_help`, `account_help`, `ticket_status`, `general_qa` and extracts entities (tool name, ticket ID, account, cause). |
+| **Knowledge** | RAG over IT documentation — embeds the query with OpenAI, retrieves top-k chunks from Chroma, synthesizes a grounded answer with citations to the source markdown files. |
+| **Workflow** | Calls IT tools (`create_access_request`, `create_account_ticket`, `get_ticket_status`, `update_ticket_with_note`) through a real MCP server. |
+| **Escalation** | Decides when not to auto-resolve. Builds a structured handoff (original message + extracted entities + what was tried + reason) for human IT. |
 
-**Key metrics:** access routing accuracy, retrieval hit rate, request completion rate, response latency.
-
-### 2. Account Help — "My account is locked, what should I do?"
-
-- User reports a locked account or login failure.
-- Intake Agent classifies as `account_help` and extracts the account/system and the cause (too many attempts, forgotten password, etc.).
-- Knowledge Agent retrieves lockout and credential-recovery policies.
-- Assistant walks the user through documented steps.
-- If recovery fails or the request looks risky (suspected compromise), Workflow Agent calls `create_account_ticket(user_id, summary)` to open an account support ticket.
-- Escalation Agent summarizes attempts and marks the case for human follow-up.
-
-**Key metrics:** account routing accuracy, guided-resolution rate, ticket-creation success rate, response latency.
-
-### 3. Ticket Status — "What's the status of my IT ticket?"
-
-- User asks about an existing ticket, with or without an ID.
-- Intake Agent classifies as `ticket_status` and extracts the ticket ID.
-- Workflow Agent calls `get_ticket_status(ticket_id)` against the mock ticket store.
-- Knowledge Agent translates the raw status into plain language ("waiting on your manager's approval," "assigned to IT," "waiting on you") and outlines next steps.
-- Escalation Agent flags missing/invalid IDs and stuck or stale tickets.
-
-**Key metrics:** status routing accuracy, lookup success rate, explanation clarity, response latency.
-
-### Q&A-Only Knowledge Questions
-
-Using the same RAG pipeline, the assistant answers documentation-driven questions with no tool calls:
-
-- "What are the password requirements?"
-- "How do I connect to the office Wi-Fi?"
-- "What are the IT support escalation tiers?"
+Three IT flows are fully implemented end-to-end (access help, account
+help, ticket status), plus a knowledge-only Q&A path for general IT
+questions like Wi-Fi setup and password rules.
 
 ---
 
 ## Architecture
 
-### Components
+```
+                                 ┌─────────────────────┐
+                                 │   Chat UI (Next.js) │
+                                 └──────────┬──────────┘
+                                            │
+                                ┌───────────▼───────────┐
+                                │     Orchestrator      │
+                                │  (conditional routing │
+                                │  on intent + conf.)   │
+                                └───────────┬───────────┘
+                                            │
+              ┌─────────────────────────────┼────────────────────────────┐
+              │                             │                            │
+       ┌──────▼─────┐               ┌───────▼──────┐             ┌───────▼──────┐
+       │  Intake    │               │  Knowledge   │             │  Workflow    │
+       │  Agent     │               │  Agent       │             │  Agent       │
+       └────────────┘               └──────┬───────┘             └──────┬───────┘
+                                           │                            │
+                                  ┌────────▼────────┐          ┌────────▼────────┐
+                                  │  Vector Store   │          │   MCP Server    │
+                                  │   (Chroma)      │          │  (stdio + SDK)  │
+                                  └────────┬────────┘          └────────┬────────┘
+                                           │                            │
+                                  ┌────────▼────────┐          ┌────────▼────────┐
+                                  │  OpenAI         │          │ 4 IT support    │
+                                  │  Embeddings     │          │ tools           │
+                                  └─────────────────┘          └─────────────────┘
 
-- **User Interface (Chat UI)** — Next.js app where employees type IT questions; live status indicators show what the system is doing.
-- **Intake Agent** — LLM + schema for intent classification and entity extraction.
-- **Knowledge Agent** — RAG pipeline using embeddings + a vector store (Chroma).
-- **Workflow Agent** — calls tools through an MCP-style server.
-- **Escalation Agent** — final gate; decides resolve vs. hand off.
-- **Data Layer** — IT documents (policies, how-tos), mock ticket store, and metrics log.
+         ┌──────────────────────────────────┐
+         │   Escalation Agent  (final gate) │
+         └──────────────────────────────────┘
+```
 
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for diagrams and detailed component descriptions.
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for component-level
+detail and message flow.
+
+---
+
+## Demo flows
+
+| Prompt | Outcome |
+|---|---|
+| `I need access to Figma for the design review` | Detects existing open request, cites Figma access policy, does **not** create a duplicate. |
+| `I'm locked out of my account` | Returns self-service recovery steps from the lockout policy. No ticket needed. |
+| `What's the status of INC-1042?` | Calls `get_ticket_status` via MCP, returns "waiting on manager approval" with a clear next step. |
+| `Someone logged into my account from another country and I didn't do it` | Detects suspected compromise (no literal "compromised" word required), opens a P1 account ticket, escalates to Security. |
+
+Each response includes intent, confidence, latency, and source citations
+to the exact markdown section that grounded the answer.
 
 ---
 
 ## Features
 
-- Multi-agent orchestration (Intake → Knowledge → Workflow → Escalation)
-- RAG over IT documentation with source attribution
-- Workflow automation for access requests, account tickets, and ticket-status lookup
-- MCP-style tool server for `create_access_request`, `create_account_ticket`, `get_ticket_status`, `update_ticket_with_note`
-- Status indicators in the UI for every agent step
-- Metrics tracking for routing accuracy, retrieval hit rate, auto-resolve rate, and latency
+- ✅ Multi-agent orchestration (Intake → Knowledge → Workflow → Escalation) with conditional routing
+- ✅ Real RAG: OpenAI embeddings (`text-embedding-3-small`) + Chroma vector store
+- ✅ Real MCP integration via the official `@modelcontextprotocol/sdk` over stdio (works with Claude Desktop, MCP Inspector, etc.)
+- ✅ 4 working IT tools: access requests, account tickets, ticket status, ticket updates
+- ✅ Grounded answers with source citations to `docs/kb/*.md`
+- ✅ Escalation Agent with structured handoff to human IT
+- ✅ 13 vitest scenario tests, all passing
+- ✅ Pluggable LLM provider — swap OpenAI for Gemini/Ollama with no agent code changes
+- ✅ Health and metrics endpoints (`/api/health`, `/api/metrics`)
 
 ---
 
-## Example Queries
-
-**Access & Account**
-
-- "How do I get access to Figma?"
-- "I was added to the team but still can't log in."
-- "My SSO account is locked. What should I do?"
-
-**Ticket Status**
-
-- "What's the status of ticket #INC-1042?"
-- "Is my laptop repair ticket still open?"
-
-**Knowledge Only**
-
-- "What are the password rules here?"
-- "How do I connect to the office Wi-Fi?"
-- "How long do P1 incidents usually take to resolve?"
-
----
-
-## Quick Start
+## Quick start
 
 ### Prerequisites
 
-- Node.js 20+ (Next.js 16 requires it)
-- (Optional, for the real RAG path) Docker Desktop + an OpenAI API key
+- Node.js 20+
+- (For real RAG) Docker Desktop running + an OpenAI API key
 
-### Path A — Mock mode (no API key, no Chroma)
+### Path A — mock mode (no API key, no Chroma)
 
 ```bash
 git clone https://github.com/travisezell/BUS4-118-Capstone-.git
 cd BUS4-118-Capstone-
 npm install
+npm test           # 13/13 scenarios should pass
 npm run dev
 ```
 
-Visit `http://localhost:3000`. Agents run with deterministic mocks. The 12-scenario test suite (`npm test`) is the easiest way to verify the multi-agent pipeline works end-to-end.
+Visit `http://localhost:3000`. Agents run with deterministic mocks so
+you can verify the orchestration without spending API credits.
 
-### Path B — Real RAG (OpenAI embeddings + Chroma)
+### Path B — real RAG (OpenAI + Chroma)
 
 ```bash
-# 1. Install deps and start Chroma
+# 1. Install + start Chroma
 npm install
 docker compose up -d
 
@@ -159,9 +154,7 @@ npm run ingest
 npm run dev
 ```
 
-The ingest script reads `docs/kb/*.md`, splits each H2 section into a chunk, embeds it with `text-embedding-3-small`, and writes it to the `it-support-kb` Chroma collection. Re-running is safe — chunks upsert by stable ID.
-
-Verify the live setup at `http://localhost:3000/api/health`:
+Verify the stack is wired up at `http://localhost:3000/api/health`:
 
 ```json
 {
@@ -172,104 +165,170 @@ Verify the live setup at `http://localhost:3000/api/health`:
 }
 ```
 
-> **Heads up.** Tests intentionally run in mock mode so they don't need an API key or a running Chroma — that's why `npm test` works on a fresh clone. Path B is for the live demo.
+> **Cost check:** ingestion is ~$0.0001. A 50-prompt demo costs ~$0.01.
+> $5 of OpenAI credits is more than enough.
 
 ---
 
-## Project Structure
+## Project structure
 
-```text
+```
 app/
   api/
-    chat/route.ts        # Main chat endpoint — orchestrates the 4 agents
-    tickets/route.ts     # List tickets
-    tickets/[id]/route.ts# Read a single ticket
-    metrics/route.ts     # Read metrics log
-    health/route.ts      # Health check
-  page.tsx               # Chat UI with live status indicators
-  layout.tsx             # Root layout
-  globals.css            # Tailwind + theme
+    chat/route.ts          # Main chat endpoint — orchestrates the 4 agents
+    tickets/route.ts       # List tickets
+    tickets/[id]/route.ts  # Read a single ticket
+    metrics/route.ts       # Aggregate metrics endpoint
+    health/route.ts        # Reports active LLM / vector store / MCP tools
+  page.tsx                 # Chat UI with intent + confidence + sources display
+  layout.tsx               # Root layout
+  globals.css              # Tailwind + theme
 
 src/
   agents/
-    types.ts             # Shared agent state + types
-    intake.ts            # Intent classification + entity extraction
-    knowledge.ts         # RAG retrieval over IT docs
-    workflow.ts          # Tool calls via MCP-style server
-    escalation.ts        # Human handoff logic
-    orchestrator.ts      # LangGraph-style routing
+    types.ts               # Shared agent state + types
+    intake.ts              # Intent classification + entity extraction
+    knowledge.ts           # RAG retrieval + grounded answer synthesis
+    workflow.ts            # Tool calls via MCP server
+    escalation.ts          # Human handoff logic
+    orchestrator.ts        # Routes a message through the 4 agents
   lib/
-    llm.ts               # Pluggable LLM interface (OpenAI / Gemini / Ollama / mock)
-    vector-store.ts      # Vector store interface (Chroma + mock fallback)
-    metrics.ts           # In-memory metrics logger
+    llm.ts                 # LLMProvider interface + MockProvider + OpenAIProvider
+    vector-store.ts        # VectorStore interface + InMemoryVectorStore + ChromaVectorStore
+    metrics.ts             # In-memory metrics logger
   mcp/
-    tools.ts             # Tool catalog (4 IT tools)
-    server.ts            # MCP-style server stub
+    tools.ts               # 4 IT tool definitions (name, schema, handler)
+    server.ts              # In-process server + StdioMCPClient (real MCP)
   data/
-    knowledge-base.ts    # Seeded IT policies, FAQs, and how-tos
-    tickets.ts           # In-memory mock ticket store
+    knowledge-base.ts      # Default in-memory KB (used in mock mode)
+    tickets.ts             # In-memory ticket store with seeded scenarios
 
 tests/
-  scenarios.test.ts      # 12 test scenarios (4 per flow)
+  scenarios.test.ts        # 13 end-to-end scenarios
 
 scripts/
-  ingest.ts              # Loads docs/kb/*.md → chunks → embeds → Chroma
+  ingest.ts                # Loads docs/kb/*.md → chunks → embeds → Chroma
+  mcp-server.ts            # Standalone MCP server (stdio transport)
 
 docs/
-  ARCHITECTURE.md
-  TESTING.md
-  SCALING.md
-  PRD.md                 # Product Requirements Document
-  kb/                    # Source IT documentation (markdown)
+  ARCHITECTURE.md          # Component-level detail
+  TESTING.md               # 13 test scenarios documented
+  SCALING.md               # Vendor research (Moveworks, ServiceNow Now Assist)
+  kb/                      # Source IT documentation (markdown)
     access-policies.md
     account-guidance.md
     ticket-faqs.md
     general-it-faqs.md
 
-docker-compose.yml       # Chroma service for local development
+docker-compose.yml         # Chroma service for local development
+.env.example               # Environment variable template
 ```
 
 ---
 
 ## Testing
 
-See [`docs/TESTING.md`](docs/TESTING.md) for the full scenario list.
-
 ```bash
-npm test            # run all tests
+npm test            # run all 13 scenarios
 npm run test:watch  # watch mode
 ```
 
-We focus tests on:
+The test suite covers:
 
-- Intake classification and entity extraction.
-- Knowledge retrieval quality (top-k hit rate).
-- Workflow tool calls (request creation, status lookup).
-- End-to-end flows for the three core scenarios — 12 total (4 per flow).
+- **Access help** (4 scenarios): happy path, missing tool name, unsupported tool, duplicate request
+- **Account help** (5 scenarios): standard lockout, skip-self-service, unclear, suspected compromise (vocabulary), suspected compromise (natural-language phrasing)
+- **Ticket status** (4 scenarios): valid ID, invalid ID, no ID, stale ticket
 
----
+See [`docs/TESTING.md`](docs/TESTING.md) for scenario-level detail.
 
-## Metrics & Validation
-
-We track and report:
-
-- **`routingAccuracy`** — correct classification rate (target ≥ 85%).
-- **`retrievalHitRate`** — percentage of answers grounded in a relevant doc chunk (target ≥ 80%).
-- **`autoResolveRate`** — percentage of requests resolved without escalation (target ≥ 60%).
-- **`escalationRate`** — percentage of requests escalated (reported, not optimized down — honest escalation is a feature).
-- **`averageLatencyMs`** — average response time per request (target < 5,000 ms for non-tool responses).
-
-Live metrics are exposed at `GET /api/metrics`. The 12-scenario summary is captured in `docs/TESTING.md`.
+Tests run against the mock providers so they pass on a fresh clone with
+no API key — that's intentional, the real RAG path is reserved for the
+live demo.
 
 ---
 
-## Tech Stack
+## Metrics
 
-- **Frontend** — Next.js 16 (App Router) + React 19 + Tailwind 4
-- **Orchestration** — LangGraph-style state graph (custom lightweight implementation in `src/agents/orchestrator.ts`)
-- **LLM** — Pluggable provider (OpenAI / Gemini / Ollama); default is a deterministic mock for offline development
-- **Embeddings** — OpenAI embeddings (mock fallback for offline development)
-- **Vector Store** — Chroma (local), with an in-memory cosine-similarity fallback
-- **Tool Protocol** — MCP-style typed tool server
-- **Testing** — Vitest
-- **Deployment** — Vercel-compatible
+The system tracks (PRD §13):
+
+| Metric | Target | Current (test suite) |
+|---|---|---|
+| Routing accuracy | ≥85% | 100% |
+| Retrieval hit rate | ≥80% | 71% |
+| Auto-resolve rate | ≥60% | 64% |
+| Average latency | <5s | <1ms (mock) / ~500ms (OpenAI) |
+| Escalation rate | — | 36% |
+
+Live metrics from `/api/metrics`.
+
+---
+
+## Tech stack
+
+| Layer | Choice |
+|---|---|
+| Framework | Next.js 16 + React 19 |
+| LLM | OpenAI `gpt-4o-mini` (chat) + `text-embedding-3-small` (embeddings) |
+| Vector store | Chroma 0.5 |
+| Tool layer | Model Context Protocol (`@modelcontextprotocol/sdk`) over stdio |
+| Tests | Vitest |
+| Styling | Tailwind CSS v4 |
+| Container | Docker Compose (Chroma) |
+
+---
+
+## Design trade-offs
+
+A few decisions worth knowing about — these are honest engineering
+trade-offs, not gaps:
+
+- **Hand-rolled orchestrator vs LangGraph.** We wrote a small TypeScript
+  orchestrator instead of pulling in LangGraph. Same conditional routing
+  logic, same agent contracts, but no extra dependency. Cost: less
+  visualization tooling out of the box. Benefit: full control and easier
+  to read.
+- **Rule-based intent classifier vs LLM-based.** Intake uses regex +
+  keyword + phrase matching for fast, free, deterministic
+  classification. Failure mode: novel phrasings that don't match our
+  patterns (we hit one — see commit history for the
+  "from another country" fix). Mitigation: pattern expansion. Next
+  iteration: route Intake through `gpt-4o-mini` for ~50ms latency at
+  ~$0.0001/query.
+- **In-memory ticket store vs real ITSM.** Tickets live in a `Map<>` on
+  the server. Restarts wipe state. For the prototype this is fine —
+  swapping for a real ITSM (Jira, ServiceNow) is a single file change in
+  `src/data/tickets.ts` because everything goes through the
+  ticket-service interface.
+- **Blended cosine + keyword retrieval.** The in-memory vector store
+  blends 60% cosine similarity with 40% keyword overlap so retrieval
+  ranks reasonably even when embeddings are weak (mock mode). Real RAG
+  on OpenAI embeddings doesn't need the keyword fallback — but we kept
+  it because it cheap-defends against query/document vocabulary mismatch.
+
+---
+
+## Vendor research
+
+We compared two industry incumbents to inform our scope and design
+choices. Full notes in [`docs/SCALING.md`](docs/SCALING.md).
+
+- **Moveworks** — purpose-built employee-IT assistant. Validated our
+  4-agent decomposition and the
+  intake → knowledge → workflow → escalation pipeline. Their tier-based
+  escalation model influenced our Tier 1 / Tier 2 / Security split.
+- **ServiceNow Now Assist** — generative AI layer on top of an ITSM.
+  Validated MCP-style tool calling for ticket actions and reinforced
+  that grounding answers in your own knowledge base (rather than open
+  web) is what makes IT assistants trustworthy.
+
+---
+
+## Team
+
+Group 5 — BUS 118S Capstone, May 2026.
+
+---
+
+## License
+
+For coursework purposes. Not licensed for production use.

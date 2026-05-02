@@ -199,8 +199,8 @@ export default function Home() {
       </form>
 
       <footer className="mt-3 text-center text-xs text-zinc-400 dark:text-zinc-500">
-        Mock prototype — no real ITSM integration. See <code>/api/metrics</code>{" "}
-        and <code>/api/health</code>.
+        Real OpenAI + Chroma RAG · Live MCP tool integration · Mock ticket store. See <code>/api/metrics</code>{" "}
+           and <code>/api/health</code>.
       </footer>
     </main>
   );

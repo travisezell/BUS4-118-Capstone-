@@ -3,14 +3,13 @@
 An AI-powered internal IT support assistant that uses a multi-agent architecture, retrieval-augmented generation (RAG), and MCP-style tools to help employees resolve common IT requests through a single chat interface.
 
 > **Course:** BUS 118S Capstone — Group 5
-> **Project Manager:** Travis Ezell
 > **Repository:** [travisezell/BUS4-118-Capstone](https://github.com/travisezell/BUS4-118-Capstone-)
 
 ---
 
 ## Problem Definition
 
-For everyday IT issues, employees bounce between multiple systems — searching a wiki, trying a portal, then opening a ticket or pinging IT — even when the answer already exists in documentation. The result is long queues, duplicate tickets, and IT staff burning tier-1 capacity on highly repeatable problems like access requests, account lockouts, and ticket-status questions.
+For everyday IT issues, employees bounce between multiple systems — searching a wiki, trying a portal, then opening a ticket or pinging IT even when the answer already exists in documentation. The result is long queues, duplicate tickets, and IT staff burning tier-1 capacity on highly repeatable problems like access requests, account lockouts, and ticket-status questions.
 
 Our system provides one front door. The user describes their problem in chat, and the assistant understands the request, looks up the right IT documentation, and either guides them through the fix or triggers a small support action (submit a request, check the status of an existing ticket) before escalating to a human if needed.
 

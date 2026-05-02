@@ -128,6 +128,24 @@ describe("Account Help (PRD §14.2)", () => {
       )
     ).toBe(true);
   });
+
+  it("risky request (natural-language phrasing): unfamiliar-location login still escalates", async () => {
+    // Regression for a real demo failure (May 2026): the user phrasing did
+    // not contain the literal words "compromised"/"hacked"/"suspicious",
+    // so the keyword classifier fell through to `unknown` and escalation
+    // was generic instead of routing to a Security ticket.
+    const res = await handleMessage(
+      "Someone logged into my account from another country and I didn't do it"
+    );
+    expect(res.intent).toBe("account_help");
+    expect(res.entities.cause).toBe("suspected_compromise");
+    expect(res.escalated).toBe(true);
+    expect(
+      res.toolResults.some(
+        (r) => r.name === "create_account_ticket" && r.ok
+      )
+    ).toBe(true);
+  });
 });
 
 describe("Ticket Status (PRD §14.3)", () => {

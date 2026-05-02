@@ -171,17 +171,77 @@ function extractAccountId(message: string): string | undefined {
   return undefined;
 }
 
-/** Extract an observed cause (e.g. "too many attempts", "forgot password"). */
+/**
+ * Extract an observed cause (e.g. "too many attempts", "forgot password",
+ * "suspected compromise"). Compromise detection is intentionally broad —
+ * users almost never use the literal word "compromised" when they're
+ * actually compromised. They say things like "someone logged into my
+ * account from another country and I didn't do it." Each natural-
+ * language pattern below maps a real-world phrasing to the canonical
+ * `suspected_compromise` cause so Workflow can route to a P1 ticket.
+ */
 function extractCause(message: string): string | undefined {
   const lc = lower(message);
+
+  // ──────────────────────────────────────────────────────────────────
+  // Suspected compromise — checked first because it's the highest-
+  // priority cause and it can co-occur with other signals (e.g. "I'm
+  // locked out and someone else is using my account").
+  // ──────────────────────────────────────────────────────────────────
+
+  // Direct vocabulary
+  if (
+    lc.includes("compromised") ||
+    lc.includes("hacked") ||
+    lc.includes("suspicious") ||
+    lc.includes("phished") ||
+    lc.includes("stolen") ||
+    lc.includes("unauthorized") ||
+    lc.includes("unauthorised") ||
+    lc.includes("breach")
+  ) {
+    return "suspected_compromise";
+  }
+
+  // "Someone else" / not-me phrasing
+  if (
+    /\bsomeone\s+(?:else|is|has|got|logged|signed)\b/i.test(message) ||
+    /\b(?:wasn'?t|isn'?t|not)\s+me\b/i.test(message) ||
+    /\bi\s+(?:didn'?t|never)\s+(?:do|log|sign|change|reset|share)\b/i.test(message)
+  ) {
+    return "suspected_compromise";
+  }
+
+  // Unfamiliar location / device signals
+  if (
+    /\b(?:another|different|unfamiliar|unknown|strange|weird)\s+(?:country|location|place|city|state|device|computer|machine|ip)\b/i.test(
+      message
+    ) ||
+    /\bfrom\s+(?:another|a different|somewhere|some\s*place)\b/i.test(message) ||
+    /\b(?:unrecognized|unrecognised)\s+(?:device|location|login|sign-?in)\b/i.test(message)
+  ) {
+    return "suspected_compromise";
+  }
+
+  // Account changed without consent
+  if (
+    /\bpassword\s+(?:got|was|has been)\s+changed\b/i.test(message) ||
+    /\bsecurity\s+alert\b/i.test(message) ||
+    /\bidentity\s+theft\b/i.test(message)
+  ) {
+    return "suspected_compromise";
+  }
+
+  // ──────────────────────────────────────────────────────────────────
+  // Other causes
+  // ──────────────────────────────────────────────────────────────────
   if (lc.includes("too many attempts") || lc.includes("too many tries"))
     return "too_many_attempts";
   if (lc.includes("forgot") || lc.includes("forgotten"))
     return "forgot_password";
-  if (lc.includes("compromised") || lc.includes("hacked") || lc.includes("suspicious"))
-    return "suspected_compromise";
   if (lc.includes("mfa") || lc.includes("two factor") || lc.includes("2fa"))
     return "mfa_issue";
+
   return undefined;
 }
 
@@ -200,6 +260,20 @@ export function classify(userMessage: string): IntakeResult {
 
   const cause = extractCause(userMessage);
   if (cause) entities.cause = cause;
+
+  // High-confidence early exit: any signal of account compromise routes
+  // straight to account_help so Workflow can open a P1 ticket and
+  // Escalation can flag it for Security review. We do this BEFORE the
+  // normal keyword scoring because phrasings like "someone logged into
+  // my account from another country" don't contain the literal word
+  // "compromised" — they'd otherwise fall through to `unknown`.
+  if (cause === "suspected_compromise") {
+    return {
+      intent: "account_help",
+      entities,
+      confidence: 0.9,
+    };
+  }
 
   // Score each intent. The order of checks matters because some keywords
   // overlap (e.g. "ticket" could appear in an access request).

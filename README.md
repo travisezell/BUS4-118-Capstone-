@@ -4,7 +4,7 @@ An AI-powered internal IT support assistant that uses a multi-agent architecture
 
 > **Course:** BUS 118S Capstone — Group 5
 > **Project Manager:** Travis Ezell
-> **Repository:** [travisezell/BUS4-118-Capstone](https://github.com/travisezell/BUS4-118-Capstone)
+> **Repository:** [travisezell/BUS4-118-Capstone](https://github.com/travisezell/BUS4-118-Capstone-)
 
 ---
 

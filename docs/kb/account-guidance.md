@@ -8,6 +8,19 @@ Most account lockouts after too many failed login attempts auto-clear in 15 minu
 
 You can reset your password yourself: go to sso.company.com, click "Forgot password," check your work email for the reset link, and choose a new password that meets the requirements (12+ characters, mixed case, a number, a symbol).
 
+## Password requirements
+
+Company passwords must meet all of these requirements:
+
+- At least 12 characters long.
+- Contains uppercase and lowercase letters.
+- Contains at least one number.
+- Contains at least one symbol (e.g. `! @ # $ % & *`).
+- Cannot reuse any of your last 10 passwords.
+- Cannot contain your name, username, or company name.
+
+Passwords expire every 180 days. Service accounts and admin accounts have stricter rules — see Security policy for details. If your new password keeps getting rejected, the most common cause is a recently-reused one (the system blocks the last 10).
+
 ## MFA reset
 
 If you lost your MFA device, IT must reset MFA for you — this cannot be done self-service. Open an account support ticket and bring a government-issued photo ID to the IT desk for in-person verification.

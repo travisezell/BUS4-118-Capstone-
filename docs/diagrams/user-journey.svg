@@ -1,4 +1,4 @@
-<svg viewBox="0 0 1800 1200" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
+<svg viewBox="0 0 1800 1200" width="100%" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
   <rect width="1800" height="1200" fill="#ffffff"/>
 
   <text x="60" y="60" font-size="32" font-weight="700" fill="#111827">User Journey</text>

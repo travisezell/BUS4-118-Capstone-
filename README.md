@@ -213,7 +213,7 @@ scripts/
 docs/
   ARCHITECTURE.md          # Component-level detail
   TESTING.md               # 13 test scenarios documented
-  SCALING.md               # Vendor research (Moveworks, ServiceNow Now Assist)
+  SCALING.md               # Vendor research (Moveworks, ServiceNow Now Assist, Glean)
   kb/                      # Source IT documentation (markdown)
     access-policies.md
     account-guidance.md
@@ -314,7 +314,7 @@ trade-offs, not gaps:
 
 ## Vendor research
 
-We compared two industry incumbents to inform our scope and design
+We compared three industry incumbents to inform our scope and design
 choices. Full notes in [`docs/SCALING.md`](docs/SCALING.md).
 
 - **Moveworks** — purpose-built employee-IT assistant. Validated our
@@ -325,6 +325,11 @@ choices. Full notes in [`docs/SCALING.md`](docs/SCALING.md).
   Validated MCP-style tool calling for ticket actions and reinforced
   that grounding answers in your own knowledge base (rather than open
   web) is what makes IT assistants trustworthy.
+- **Glean** — enterprise AI search and assistant across all company
+  data sources. Validated our citation-on-every-answer pattern and the
+  "prefer 'I don't know' over hallucination" stance. Our project is the
+  IT-workflow slice that could plug into a Glean-style horizontal
+  knowledge layer in production.
 
 ---
 

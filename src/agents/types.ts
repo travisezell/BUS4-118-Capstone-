@@ -10,6 +10,8 @@ export type Intent =
   | "account_help"
   | "ticket_status"
   | "general_qa"
+  | "greeting"
+  | "out_of_scope"
   | "unknown";
 
 export interface Entities {
@@ -17,6 +19,14 @@ export interface Entities {
   accountId?: string;
   ticketId?: string;
   cause?: string;
+  /**
+   * Set when the user's intent is recognizable in shape but missing the
+   * detail needed to act. e.g. "I need a new ticket" — we know they want
+   * to create something but don't know what category. The Escalation
+   * Agent uses this to build a friendlier "could you tell me more?"
+   * message instead of a generic "low confidence" handoff.
+   */
+  clarificationNeeded?: string;
 }
 
 export interface Message {

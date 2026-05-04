@@ -13,16 +13,17 @@ interface ChatMessage {
     sources?: string[];
     escalated?: boolean;
     latencyMs?: number;
+    statusTrace?: { kind: string; label: string }[];
   };
 }
 
 const SAMPLE_PROMPTS: { label: string; prompt: string }[] = [
-  { label: "Access · Figma", prompt: "How do I get access to Figma?" },
+  { label: "Access · Figma", prompt: "I need access to Figma for the design review" },
   {
     label: "Account · locked out",
-    prompt: "My account is locked, what should I do?",
+    prompt: "I'm locked out of my account",
   },
-  { label: "Ticket · status", prompt: "What's the status of ticket INC-1042?" },
+  { label: "Ticket · status", prompt: "What's the status of INC-1042?" },
   {
     label: "Q&A · password rules",
     prompt: "What are the password requirements?",
@@ -30,7 +31,99 @@ const SAMPLE_PROMPTS: { label: string; prompt: string }[] = [
 ];
 
 const WELCOME =
-  "Hi — I'm your IT support assistant. I can help with **access requests**, **account lockouts**, and **ticket status**, plus general IT questions like password rules and Wi-Fi setup. Try one of the quick prompts below or just type your request.";
+  "Hi — I'm your IT support assistant. I can help with **access requests**, **account lockouts**, and **ticket status**, plus general IT questions. Try a quick prompt below or just type your question.";
+
+// ─────────────────────────────────────────────────────────────────────
+// Live status stepper
+//
+// The orchestrator records the agent stages internally, but the response
+// is non-streaming — by the time the UI gets the trace, the request is
+// already done. So we predict the likely stages from the user's text and
+// step through them while the request is in flight. After the response
+// arrives we replace the prediction with the *real* trace so the user
+// sees what actually happened, including timing.
+// ─────────────────────────────────────────────────────────────────────
+
+interface Stage {
+  label: string;
+  ms: number;
+}
+
+const STAGE_INTAKE: Stage = { label: "Classifying request…", ms: 250 };
+const STAGE_KNOWLEDGE: Stage = {
+  label: "Searching IT documentation…",
+  ms: 900,
+};
+const STAGE_WORKFLOW_ACCESS: Stage = {
+  label: "Submitting access request…",
+  ms: 700,
+};
+const STAGE_WORKFLOW_ACCOUNT: Stage = {
+  label: "Checking account recovery options…",
+  ms: 700,
+};
+const STAGE_WORKFLOW_TICKET: Stage = {
+  label: "Looking up ticket status…",
+  ms: 600,
+};
+const STAGE_RESPOND: Stage = { label: "Composing response…", ms: 400 };
+
+/** Predict the agent flow from the user's message text. */
+function predictStages(message: string): Stage[] {
+  const m = message.toLowerCase();
+  const trimmed = message.trim();
+
+  // Greeting / non-help — system responds immediately, no doc search,
+  // no tool calls. Match the actual graph behavior.
+  if (
+    /^(?:hi|hello|hey|yo|sup|hiya|howdy|good\s*(?:morning|afternoon|evening)|thanks?|thank\s*you|ok|okay|cool|test|\??)\s*[!.?]*\s*$/i.test(
+      trimmed
+    ) ||
+    /\bwhat (?:can|do) you (?:do|help)\b/.test(m) ||
+    /\bwho are you\b/.test(m)
+  ) {
+    return [STAGE_INTAKE, STAGE_RESPOND];
+  }
+
+  // Ticket status — usually the fastest path (skips Knowledge in the graph).
+  if (
+    /\b(?:inc|req|acc)-\d+\b/i.test(message) ||
+    /\b(?:status|ticket|update)\b/.test(m)
+  ) {
+    return [STAGE_INTAKE, STAGE_WORKFLOW_TICKET, STAGE_RESPOND];
+  }
+
+  // Access — usually goes through Knowledge then Workflow.
+  if (
+    /\b(?:access|account.*to|provision|figma|slack|jira|github|notion|want to use|set me up)\b/.test(
+      m
+    )
+  ) {
+    return [
+      STAGE_INTAKE,
+      STAGE_KNOWLEDGE,
+      STAGE_WORKFLOW_ACCESS,
+      STAGE_RESPOND,
+    ];
+  }
+
+  // Account help — Knowledge then conditionally Workflow.
+  if (
+    /\b(?:locked|lockout|password|sign[- ]?in|mfa|2fa|compromised|hacked|my account|can't log)\b/.test(
+      m
+    )
+  ) {
+    return [
+      STAGE_INTAKE,
+      STAGE_KNOWLEDGE,
+      STAGE_WORKFLOW_ACCOUNT,
+      STAGE_RESPOND,
+    ];
+  }
+
+  // General Q&A — just classify, retrieve, respond.
+  return [STAGE_INTAKE, STAGE_KNOWLEDGE, STAGE_RESPOND];
+}
 
 export default function Home() {
   const [input, setInput] = useState("");
@@ -56,20 +149,24 @@ export default function Home() {
     setInput("");
     setPending(true);
 
-    // Show a rolling status while we wait — the orchestrator returns the
-    // real list of statusEvents in the response, but we want some
-    // movement on screen during the request.
-    const stages = [
-      "Classifying request…",
-      "Searching IT documentation…",
-      "Calling tools…",
-    ];
-    let i = 0;
-    setStatusLabel(stages[0]);
-    const tick = setInterval(() => {
-      i = Math.min(i + 1, stages.length - 1);
-      setStatusLabel(stages[i]);
-    }, 600);
+    // Predict the agent stages from the message and step through them
+    // with realistic per-stage timing. We hold on the last stage if the
+    // request hasn't returned yet so the user sees movement, not a
+    // freeze.
+    const predicted = predictStages(userText);
+    setStatusLabel(predicted[0].label);
+    let cancelled = false;
+    let stageIdx = 0;
+
+    const tick = () => {
+      if (cancelled) return;
+      stageIdx = Math.min(stageIdx + 1, predicted.length - 1);
+      setStatusLabel(predicted[stageIdx].label);
+      if (stageIdx < predicted.length - 1) {
+        setTimeout(tick, predicted[stageIdx].ms);
+      }
+    };
+    setTimeout(tick, predicted[0].ms);
 
     try {
       const history = messages
@@ -82,7 +179,7 @@ export default function Home() {
         body: JSON.stringify({ message: userText, history }),
       });
       const data = await res.json();
-      clearInterval(tick);
+      cancelled = true;
       setStatusLabel(null);
 
       if (!res.ok) {
@@ -96,6 +193,16 @@ export default function Home() {
         return;
       }
 
+      // Pull the real status trace out of the response. The orchestrator
+      // emits one event per agent stage; we surface those in the
+      // message metadata so users can see what actually ran.
+      const statusTrace = (data.statusEvents ?? []).map(
+        (e: { kind: string; label: string }) => ({
+          kind: e.kind,
+          label: e.label,
+        })
+      );
+
       setMessages((prev) => [
         ...prev,
         {
@@ -107,11 +214,12 @@ export default function Home() {
             sources: data.retrievedSources ?? [],
             escalated: data.escalated,
             latencyMs: data.latencyMs,
+            statusTrace,
           },
         },
       ]);
     } catch (err) {
-      clearInterval(tick);
+      cancelled = true;
       setStatusLabel(null);
       setMessages((prev) => [
         ...prev,
@@ -139,7 +247,7 @@ export default function Home() {
               IT Support Assistant
             </h1>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              Multi-agent · RAG · MCP-style tools · Group 5 BUS 118S
+              Multi-agent · LangGraph · RAG · MCP · Group 5 BUS 118S
             </p>
           </div>
         </div>
@@ -200,7 +308,7 @@ export default function Home() {
 
       <footer className="mt-3 text-center text-xs text-zinc-400 dark:text-zinc-500">
         Real OpenAI + Chroma RAG · Live MCP tool integration · Mock ticket store. See <code>/api/metrics</code>{" "}
-           and <code>/api/health</code>.
+        and <code>/api/health</code>.
       </footer>
     </main>
   );
@@ -242,14 +350,28 @@ function MessageMeta({
     items.push(`${meta.latencyMs} ms`);
   if (meta.escalated) items.push("escalated");
   return (
-    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-      {items.map((t) => (
-        <span key={t}>{t}</span>
-      ))}
-      {meta.sources && meta.sources.length > 0 && (
-        <span>
-          sources: <code>{meta.sources.join(", ")}</code>
-        </span>
+    <div className="mt-2 space-y-1.5">
+      <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+        {items.map((t) => (
+          <span key={t}>{t}</span>
+        ))}
+        {meta.sources && meta.sources.length > 0 && (
+          <span>
+            sources: <code>{meta.sources.join(", ")}</code>
+          </span>
+        )}
+      </div>
+      {meta.statusTrace && meta.statusTrace.length > 0 && (
+        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-zinc-400 dark:text-zinc-500">
+          {meta.statusTrace.map((e, idx) => (
+            <span key={idx} className="flex items-center gap-1.5">
+              <span className="text-zinc-300 dark:text-zinc-600">
+                {idx === 0 ? "trace:" : "→"}
+              </span>
+              <span>{e.label.replace(/…$/, "")}</span>
+            </span>
+          ))}
+        </div>
       )}
     </div>
   );
@@ -260,41 +382,59 @@ function MessageMeta({
  * Avoids pulling in a markdown library for a prototype.
  */
 function renderContent(text: string): React.ReactNode {
-  const lines = text.split("\n");
-  return lines.map((line, i) => (
-    <span key={i}>
-      {renderInline(line)}
-      {i < lines.length - 1 && <br />}
-    </span>
-  ));
-}
-
-function renderInline(text: string): React.ReactNode {
-  // Replace **bold** and `code`
   const parts: React.ReactNode[] = [];
-  const pattern = /(\*\*[^*]+\*\*|`[^`]+`)/g;
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-  let key = 0;
-  while ((match = pattern.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push(text.slice(lastIndex, match.index));
+  const lines = text.split("\n");
+  lines.forEach((line, lineIdx) => {
+    // Tokenize bold and inline code per line.
+    const tokens: React.ReactNode[] = [];
+    let remaining = line;
+    let key = 0;
+    while (remaining.length > 0) {
+      const bold = remaining.match(/\*\*(.+?)\*\*/);
+      const code = remaining.match(/`([^`]+)`/);
+
+      type NextMatch = { index: number; len: number; node: React.ReactNode };
+      let nextMatch: NextMatch | null = null;
+      if (bold) {
+        nextMatch = {
+          index: bold.index ?? 0,
+          len: bold[0].length,
+          node: (
+            <strong key={`b-${lineIdx}-${key++}`} className="font-semibold">
+              {bold[1]}
+            </strong>
+          ),
+        };
+      }
+      if (code && (!nextMatch || (code.index ?? 0) < nextMatch.index)) {
+        nextMatch = {
+          index: code.index ?? 0,
+          len: code[0].length,
+          node: (
+            <code
+              key={`c-${lineIdx}-${key++}`}
+              className="rounded bg-zinc-200/80 px-1 py-0.5 text-[0.85em] font-mono dark:bg-zinc-700/60"
+            >
+              {code[1]}
+            </code>
+          ),
+        };
+      }
+
+      if (!nextMatch) {
+        tokens.push(remaining);
+        break;
+      }
+      if (nextMatch.index > 0) {
+        tokens.push(remaining.slice(0, nextMatch.index));
+      }
+      tokens.push(nextMatch.node);
+      remaining = remaining.slice(nextMatch.index + nextMatch.len);
     }
-    const token = match[0];
-    if (token.startsWith("**")) {
-      parts.push(<strong key={`b${key++}`}>{token.slice(2, -2)}</strong>);
-    } else {
-      parts.push(
-        <code
-          key={`c${key++}`}
-          className="rounded bg-zinc-200 px-1 py-0.5 text-[12px] dark:bg-zinc-700"
-        >
-          {token.slice(1, -1)}
-        </code>
-      );
+    parts.push(<span key={`l-${lineIdx}`}>{tokens}</span>);
+    if (lineIdx < lines.length - 1) {
+      parts.push(<br key={`br-${lineIdx}`} />);
     }
-    lastIndex = match.index + token.length;
-  }
-  if (lastIndex < text.length) parts.push(text.slice(lastIndex));
+  });
   return parts;
 }

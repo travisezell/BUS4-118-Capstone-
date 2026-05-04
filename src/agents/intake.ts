@@ -61,6 +61,13 @@ const ACCESS_KEYWORDS = [
   "add me to",
   "grant",
   "license",
+  // Natural-language patterns for "I want to use Tool X"
+  "want to use",
+  "would like to use",
+  "set me up with",
+  "set up with",
+  "onboard me to",
+  "provision",
 ];
 
 const ACCOUNT_KEYWORDS = [
@@ -71,6 +78,10 @@ const ACCOUNT_KEYWORDS = [
   "can't log in",
   "cannot log in",
   "can't login",
+  "cannot login",
+  "can't sign in",
+  "cannot sign in",
+  "can't get in",
   "password",
   "reset password",
   "forgot password",
@@ -80,6 +91,22 @@ const ACCOUNT_KEYWORDS = [
   "compromised",
   "hacked",
   "suspicious",
+  // Natural-language phrasings for "my login isn't working"
+  "my account is",
+  "account is broken",
+  "account isn't working",
+  "account is not working",
+  "login not working",
+  "login isn't working",
+  "login isn't",
+  "login doesn't",
+  "login is broken",
+  "with my login",
+  "with my sign-in",
+  "with my sign in",
+  "sign-in not working",
+  "sign in not working",
+  "wrong password",
 ];
 
 const TICKET_KEYWORDS = [
@@ -90,6 +117,49 @@ const TICKET_KEYWORDS = [
   "what's the status",
   "where is my",
   "any update on",
+];
+
+/**
+ * Phrases that indicate the user wants to *create* a ticket, not check
+ * the status of one. These are intentionally specific so we don't catch
+ * "what's the status of my open ticket" (that's a status lookup).
+ */
+const CREATE_TICKET_PATTERNS: RegExp[] = [
+  /\b(?:create|open|file|submit|raise|start)\s+(?:a|an|new)?\s*ticket\b/i,
+  /\b(?:i\s*)?(?:need|want|would like)\s+(?:a|an|new)?\s*(?:new\s+)?ticket\b/i,
+  /\bnew ticket\b/i,
+];
+
+/**
+ * Greetings, capability questions, and other non-help messages.
+ * The system responds with a friendly capability summary instead of
+ * escalating to a Tier 2 ticket — those would be noise for IT staff.
+ */
+const GREETING_PATTERNS: RegExp[] = [
+  /^\s*(?:hi|hello|hey|yo|sup|hiya|howdy|greetings?)\s*[!.?]*\s*$/i,
+  /^\s*(?:good\s*(?:morning|afternoon|evening))\s*[!.?]*\s*$/i,
+  /^\s*(?:thanks?|thank\s*you|thx|ty)\s*[!.?]*\s*$/i,
+  /^\s*(?:ok|okay|cool|got it|nice|sure)\s*[!.?]*\s*$/i,
+  /^\s*\??\s*$/, // bare "?" or empty-ish input
+  /^\s*test\s*[!.?]*\s*$/i,
+  /^\s*(?:i\s+need\s+help|help\s*me)\s*[!.?]*\s*$/i, // standalone "I need help" / "help me"
+  /\bwhat (?:can|do) you (?:do|help)\b/i,
+  /\bwho are you\b/i,
+  /\bare you (?:a |an )?(?:bot|ai|robot|human)\b/i,
+];
+
+/**
+ * Out-of-scope topics — things that aren't IT but might come our way.
+ * We respond with a polite "this isn't something I can help with"
+ * rather than escalating to IT, since IT shouldn't get HR/facility
+ * questions either.
+ */
+const OUT_OF_SCOPE_PATTERNS: RegExp[] = [
+  /\b(?:office|building)\s+(?:hours?|open|closed)\b/i,
+  /\b(?:parking|cafeteria|lunch|kitchen|conference room)\b/i,
+  /\b(?:hr|payroll|benefits|pto|vacation|salary|paycheck)\b/i,
+  /\b(?:badge|keycard|access card)\b/i, // physical access, not software
+  /\bweather\b/i,
 ];
 
 function lower(s: string): string {
@@ -249,6 +319,27 @@ export function classify(userMessage: string): IntakeResult {
   const lc = lower(userMessage.trim());
   const entities: Entities = {};
 
+  // Greetings, "what can you do", thanks, etc. — return a friendly
+  // capability message, never escalate to a Tier 2 ticket.
+  if (GREETING_PATTERNS.some((re) => re.test(userMessage))) {
+    return {
+      intent: "greeting",
+      entities,
+      confidence: 0.95,
+    };
+  }
+
+  // Out-of-scope — facilities, HR, payroll, weather, etc. Politely
+  // decline rather than escalate; these aren't IT problems and
+  // escalating them creates noise for IT staff.
+  if (OUT_OF_SCOPE_PATTERNS.some((re) => re.test(userMessage))) {
+    return {
+      intent: "out_of_scope",
+      entities,
+      confidence: 0.85,
+    };
+  }
+
   const ticketId = extractTicketId(userMessage);
   if (ticketId) entities.ticketId = ticketId;
 
@@ -273,6 +364,32 @@ export function classify(userMessage: string): IntakeResult {
       entities,
       confidence: 0.9,
     };
+  }
+
+  // "I need a new ticket" / "create a ticket" without any other intent
+  // signal. We know the user wants to create something but not what
+  // category. Route to `unknown` with a clarification flag so the
+  // Escalation Agent shows a friendly "tell me more" message instead
+  // of a generic "low confidence" handoff.
+  const wantsToCreateTicket = CREATE_TICKET_PATTERNS.some((re) =>
+    re.test(userMessage)
+  );
+  if (wantsToCreateTicket) {
+    // Only route to clarification if we don't have other intent signals.
+    // "create a ticket for figma access" should still go to access_help.
+    const hasOtherIntent =
+      any(lc, ACCESS_KEYWORDS) ||
+      any(lc, ACCOUNT_KEYWORDS) ||
+      entities.toolName ||
+      entities.cause;
+    if (!hasOtherIntent) {
+      entities.clarificationNeeded = "ticket_category";
+      return {
+        intent: "unknown",
+        entities,
+        confidence: 0.4,
+      };
+    }
   }
 
   // Score each intent. The order of checks matters because some keywords

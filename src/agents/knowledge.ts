@@ -24,6 +24,8 @@ const TOP_K_BY_INTENT: Record<Intent, number> = {
   account_help: 3,
   ticket_status: 2,
   general_qa: 4,
+  greeting: 0, // never retrieves docs
+  out_of_scope: 0, // never retrieves docs
   unknown: 4,
 };
 

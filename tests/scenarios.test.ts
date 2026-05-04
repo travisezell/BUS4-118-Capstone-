@@ -186,3 +186,42 @@ describe("Ticket Status (PRD §14.3)", () => {
     expect(res.answer.toLowerCase()).toMatch(/stuck|stalled|stale|idle/);
   });
 });
+
+describe("Edge cases (PRD §14.4)", () => {
+  it("greeting: returns capability message, no escalation", async () => {
+    const res = await handleMessage("hi");
+    expect(res.intent).toBe("greeting");
+    expect(res.escalated).toBe(false);
+    expect(res.answer.toLowerCase()).toMatch(/access|account|ticket/);
+  });
+
+  it("'what can you do': returns capability message, no escalation", async () => {
+    const res = await handleMessage("What can you do?");
+    expect(res.intent).toBe("greeting");
+    expect(res.escalated).toBe(false);
+  });
+
+  it("'I need a new ticket' alone: clarification handoff, not generic 'low confidence'", async () => {
+    const res = await handleMessage("I need a new ticket");
+    // Routes to unknown but with clarification flag — escalation message
+    // should ask for category, not say "low confidence".
+    expect(res.intent).toBe("unknown");
+    expect(res.entities.clarificationNeeded).toBe("ticket_category");
+    expect(res.escalated).toBe(true);
+    // The friendlier message lists the categories.
+    expect(res.answer.toLowerCase()).toMatch(/software access|account|existing ticket/);
+  });
+
+  it("out-of-scope (office hours): polite redirect, not escalation", async () => {
+    const res = await handleMessage("Is the office open today?");
+    expect(res.intent).toBe("out_of_scope");
+    expect(res.escalated).toBe(false);
+    expect(res.answer.toLowerCase()).toMatch(/it|hr|facilities/);
+  });
+
+  it("natural-language account problem ('my account is broken'): classifies as account_help", async () => {
+    const res = await handleMessage("My account is broken");
+    expect(res.intent).toBe("account_help");
+    expect(res.escalated).toBe(false);
+  });
+});

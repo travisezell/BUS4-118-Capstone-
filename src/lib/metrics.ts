@@ -91,6 +91,8 @@ function emptyIntentCounts(): Record<Intent, number> {
     account_help: 0,
     ticket_status: 0,
     general_qa: 0,
+    greeting: 0,
+    out_of_scope: 0,
     unknown: 0,
   };
 }

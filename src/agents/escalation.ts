@@ -106,6 +106,22 @@ export function decide(
 }
 
 function buildUserMessage(state: AgentState, reason: string): string {
+  // Friendlier handling when the user clearly wants something but
+  // didn't give us enough to act on. Avoids the cold "low confidence"
+  // wording in the common "I need a new ticket" case.
+  if (state.entities?.clarificationNeeded === "ticket_category") {
+    return [
+      "I'd like to help — could you tell me a bit more about what's going on?",
+      "",
+      "For example:",
+      "- **Software access** (\"I need access to Figma\")",
+      "- **Account problem** (\"I'm locked out\" or \"my password isn't working\")",
+      "- **Existing ticket** (\"What's the status of INC-1042?\")",
+      "",
+      "If none of those fit, let me know what you're trying to do and I'll either help directly or pass it to human IT with the right context.",
+    ].join("\n");
+  }
+
   return [
     `I'm not confident I can resolve this on my own, so I'm handing it off to human IT.`,
     ``,

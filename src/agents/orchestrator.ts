@@ -238,15 +238,20 @@ async function respondNode(state: GraphStateType): Promise<GraphUpdate> {
 
 /**
  * After Intake — route based on intent and confidence.
+ * - `greeting` and `out_of_scope` skip the whole pipeline; respond directly.
  * - `ticket_status` skips Knowledge (the tool returns structured data).
- * - `unknown` with very low confidence goes straight to Escalation.
+ * - `unknown` with low confidence goes to Escalation; "I need a new ticket"-
+ *   style underspecified requests get a friendly clarification handoff.
  * - everything else does Knowledge → Workflow.
  */
 function routeAfterIntake(
   state: GraphStateType
-): "knowledge" | "workflow" | "escalation" {
+): "knowledge" | "workflow" | "escalation" | "respond" {
+  if (state.intent === "greeting" || state.intent === "out_of_scope") {
+    return "respond";
+  }
   if (state.intent === "ticket_status") return "workflow";
-  if (state.intent === "unknown" && (state.confidence ?? 0) < 0.3) {
+  if (state.intent === "unknown" && (state.confidence ?? 0) < 0.5) {
     return "escalation";
   }
   return "knowledge";
@@ -359,6 +364,22 @@ function buildFinalAnswer(state: GraphStateType): string {
     }
     case "general_qa":
       return state.groundedAnswer ?? "I couldn't find an answer in our docs.";
+    case "greeting":
+      return [
+        "Hi! I can help with three kinds of IT requests:",
+        "",
+        "- **Access requests** — \"I need access to Figma\"",
+        "- **Account problems** — \"I'm locked out of my account\"",
+        "- **Ticket status** — \"What's the status of INC-1042?\"",
+        "",
+        "I can also answer general IT questions like password rules, Wi-Fi setup, and escalation tiers. What can I help with?",
+      ].join("\n");
+    case "out_of_scope":
+      return [
+        "That doesn't look like an IT question — I focus on access requests, account issues, ticket status, and general IT FAQs.",
+        "",
+        "If you need help with HR, facilities, or payroll, those are handled by separate teams. For IT-related questions, I'm here.",
+      ].join("\n");
     default:
       return "I'm not sure how to help with that yet.";
   }
@@ -379,6 +400,7 @@ const graph = new StateGraph(GraphState)
     knowledge: "knowledge",
     workflow: "workflow",
     escalation: "escalation",
+    respond: "respond",
   })
   .addEdge("knowledge", "workflow")
   .addConditionalEdges("workflow", routeAfterWorkflow, {

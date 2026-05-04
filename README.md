@@ -100,7 +100,7 @@ to the exact markdown section that grounded the answer.
 
 ## Features
 
-- ✅ Multi-agent orchestration (Intake → Knowledge → Workflow → Escalation) with conditional routing
+- ✅ Multi-agent orchestration via LangGraph `StateGraph` (Intake → Knowledge → Workflow → Escalation) with conditional edges based on intent + confidence
 - ✅ Real RAG: OpenAI embeddings (`text-embedding-3-small`) + Chroma vector store
 - ✅ Real MCP integration via the official `@modelcontextprotocol/sdk` over stdio (works with Claude Desktop, MCP Inspector, etc.)
 - ✅ 4 working IT tools: access requests, account tickets, ticket status, ticket updates
@@ -268,6 +268,7 @@ Live metrics from `/api/metrics`.
 | Layer | Choice |
 |---|---|
 | Framework | Next.js 16 + React 19 |
+| Orchestration | LangGraph `@langchain/langgraph` (StateGraph with conditional edges) |
 | LLM | OpenAI `gpt-4o-mini` (chat) + `text-embedding-3-small` (embeddings) |
 | Vector store | Chroma 0.5 |
 | Tool layer | Model Context Protocol (`@modelcontextprotocol/sdk`) over stdio |
@@ -282,11 +283,15 @@ Live metrics from `/api/metrics`.
 A few decisions worth knowing about — these are honest engineering
 trade-offs, not gaps:
 
-- **Hand-rolled orchestrator vs LangGraph.** We wrote a small TypeScript
-  orchestrator instead of pulling in LangGraph. Same conditional routing
-  logic, same agent contracts, but no extra dependency. Cost: less
-  visualization tooling out of the box. Benefit: full control and easier
-  to read.
+- **LangGraph for orchestration.** The Intake → Knowledge → Workflow →
+  Escalation pipeline is wired together in a real `@langchain/langgraph`
+  `StateGraph` with conditional edges. Routing decisions (e.g.
+  `ticket_status` skips Knowledge; low-confidence `unknown` jumps
+  straight to Escalation) are expressed declaratively as
+  `addConditionalEdges` rather than buried inside `if`/`else`. The
+  agents themselves are pure functions over `AgentState`, so any one of
+  them could be replaced — say, swapping our rule-based Intake for an
+  LLM-based one — without touching the graph.
 - **Rule-based intent classifier vs LLM-based.** Intake uses regex +
   keyword + phrase matching for fast, free, deterministic
   classification. Failure mode: novel phrasings that don't match our

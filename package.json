@@ -10,14 +10,20 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "ingest": "tsx --env-file=.env.local scripts/ingest.ts",
-    "ingest:no-env": "tsx scripts/ingest.ts"
+    "ingest:no-env": "tsx scripts/ingest.ts",
+    "mcp:server": "tsx scripts/mcp-server.ts",
+    "mcp:demo": "tsx --env-file=.env.local scripts/mcp-demo.ts"
   },
   "dependencies": {
+    "@langchain/core": "^0.3.30",
+    "@langchain/langgraph": "^0.2.40",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "chromadb": "^1.9.4",
     "next": "16.2.4",
     "openai": "^4.73.0",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "zod": "^3.25.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

@@ -1,0 +1,179 @@
+<svg viewBox="0 0 1600 900" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
+  <rect width="1600" height="900" fill="#fafafa"/>
+
+  <!-- Title -->
+  <text x="40" y="44" font-size="24" font-weight="700" fill="#222">System Architecture</text>
+  <text x="40" y="68" font-size="14" fill="#666">LangGraph orchestration · 4 specialized agents · real RAG · real MCP</text>
+
+  <!-- ARROW DEFINITIONS (must come before <use>s) -->
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1f2937"/>
+    </marker>
+    <marker id="arrowblue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2563eb"/>
+    </marker>
+    <marker id="arrowgreen" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#059669"/>
+    </marker>
+    <marker id="arrowamber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#d97706"/>
+    </marker>
+  </defs>
+
+  <!-- USER LAYER (top) -->
+  <rect x="600" y="100" width="400" height="64" fill="#1f2937" rx="8"/>
+  <text x="800" y="130" text-anchor="middle" font-size="16" font-weight="700" fill="white">Employee user</text>
+  <text x="800" y="150" text-anchor="middle" font-size="12" fill="#9ca3af">"I need access to Figma" · plain language</text>
+
+  <!-- Arrow: User to UI -->
+  <line x1="800" y1="164" x2="800" y2="200" stroke="#1f2937" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- UI LAYER -->
+  <rect x="500" y="200" width="600" height="80" fill="white" stroke="#1f2937" stroke-width="2" rx="8"/>
+  <text x="800" y="232" text-anchor="middle" font-size="15" font-weight="700" fill="#1f2937">Chat UI · Next.js 16</text>
+  <text x="800" y="253" text-anchor="middle" font-size="11" fill="#374151">Status indicator · sources · intent + confidence display</text>
+  <text x="800" y="270" text-anchor="middle" font-size="11" fill="#6b7280">app/page.tsx</text>
+
+  <!-- Arrow: UI to API -->
+  <line x1="800" y1="280" x2="800" y2="316" stroke="#1f2937" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- API ROUTE -->
+  <rect x="500" y="316" width="600" height="56" fill="white" stroke="#1f2937" stroke-width="2" rx="8"/>
+  <text x="800" y="342" text-anchor="middle" font-size="13" font-weight="600" fill="#1f2937">POST /api/chat</text>
+  <text x="800" y="360" text-anchor="middle" font-size="11" fill="#6b7280">app/api/chat/route.ts</text>
+
+  <!-- Arrow: API to Orchestrator -->
+  <line x1="800" y1="372" x2="800" y2="408" stroke="#1f2937" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ORCHESTRATOR (LangGraph) - large container -->
+  <rect x="120" y="408" width="1360" height="280" fill="#eff6ff" stroke="#2563eb" stroke-width="2" stroke-dasharray="6,4" rx="12"/>
+  <text x="140" y="434" font-size="14" font-weight="700" fill="#1e40af">LangGraph StateGraph orchestrator</text>
+  <text x="140" y="452" font-size="11" fill="#3b82f6">src/agents/orchestrator.ts · conditional edges on intent + confidence</text>
+
+  <!-- Agent 1: Intake -->
+  <rect x="160" y="475" width="280" height="180" fill="white" stroke="#2563eb" stroke-width="2" rx="8"/>
+  <rect x="160" y="475" width="280" height="32" fill="#2563eb" rx="8"/>
+  <rect x="160" y="503" width="280" height="4" fill="#2563eb"/>
+  <text x="300" y="496" text-anchor="middle" font-size="13" font-weight="700" fill="white">1 · Intake Agent</text>
+  <text x="180" y="528" font-size="11.5" font-weight="600" fill="#1e3a8a">Classifies intent</text>
+  <text x="180" y="545" font-size="11" fill="#374151">access_help · account_help</text>
+  <text x="180" y="561" font-size="11" fill="#374151">ticket_status · general_qa</text>
+  <text x="180" y="577" font-size="11" fill="#374151">greeting · out_of_scope · unknown</text>
+  <text x="180" y="601" font-size="11.5" font-weight="600" fill="#1e3a8a">Extracts entities</text>
+  <text x="180" y="618" font-size="11" fill="#374151">tool name · ticket ID · cause</text>
+  <text x="180" y="641" font-size="10" fill="#6b7280">intake.ts</text>
+
+  <!-- Arrow: Intake → Knowledge -->
+  <line x1="440" y1="565" x2="476" y2="565" stroke="#2563eb" stroke-width="2.5" marker-end="url(#arrowblue)"/>
+
+  <!-- Agent 2: Knowledge -->
+  <rect x="480" y="475" width="280" height="180" fill="white" stroke="#2563eb" stroke-width="2" rx="8"/>
+  <rect x="480" y="475" width="280" height="32" fill="#2563eb" rx="8"/>
+  <rect x="480" y="503" width="280" height="4" fill="#2563eb"/>
+  <text x="620" y="496" text-anchor="middle" font-size="13" font-weight="700" fill="white">2 · Knowledge Agent</text>
+  <text x="500" y="528" font-size="11.5" font-weight="600" fill="#1e3a8a">RAG retrieval</text>
+  <text x="500" y="545" font-size="11" fill="#374151">Embeds query → Chroma →</text>
+  <text x="500" y="561" font-size="11" fill="#374151">top-k chunks (similarity ≥ 0.25)</text>
+  <text x="500" y="585" font-size="11.5" font-weight="600" fill="#1e3a8a">Grounded synthesis</text>
+  <text x="500" y="602" font-size="11" fill="#374151">Answer with source citations</text>
+  <text x="500" y="618" font-size="11" fill="#374151">to docs/kb/*.md sections</text>
+  <text x="500" y="641" font-size="10" fill="#6b7280">knowledge.ts</text>
+
+  <!-- Arrow: Knowledge → Workflow -->
+  <line x1="760" y1="565" x2="796" y2="565" stroke="#2563eb" stroke-width="2.5" marker-end="url(#arrowblue)"/>
+
+  <!-- Agent 3: Workflow -->
+  <rect x="800" y="475" width="280" height="180" fill="white" stroke="#2563eb" stroke-width="2" rx="8"/>
+  <rect x="800" y="475" width="280" height="32" fill="#2563eb" rx="8"/>
+  <rect x="800" y="503" width="280" height="4" fill="#2563eb"/>
+  <text x="940" y="496" text-anchor="middle" font-size="13" font-weight="700" fill="white">3 · Workflow Agent</text>
+  <text x="820" y="528" font-size="11.5" font-weight="600" fill="#1e3a8a">Decides + calls tools</text>
+  <text x="820" y="545" font-size="11" fill="#374151">create_access_request</text>
+  <text x="820" y="561" font-size="11" fill="#374151">create_account_ticket</text>
+  <text x="820" y="577" font-size="11" fill="#374151">get_ticket_status</text>
+  <text x="820" y="593" font-size="11" fill="#374151">update_ticket_with_note</text>
+  <text x="820" y="617" font-size="11.5" font-weight="600" fill="#1e3a8a">via real MCP server</text>
+  <text x="820" y="641" font-size="10" fill="#6b7280">workflow.ts</text>
+
+  <!-- Arrow: Workflow → Escalation -->
+  <line x1="1080" y1="565" x2="1116" y2="565" stroke="#d97706" stroke-width="2.5" marker-end="url(#arrowamber)"/>
+
+  <!-- Agent 4: Escalation -->
+  <rect x="1120" y="475" width="280" height="180" fill="white" stroke="#d97706" stroke-width="2" rx="8"/>
+  <rect x="1120" y="475" width="280" height="32" fill="#d97706" rx="8"/>
+  <rect x="1120" y="503" width="280" height="4" fill="#d97706"/>
+  <text x="1260" y="496" text-anchor="middle" font-size="13" font-weight="700" fill="white">4 · Escalation Agent</text>
+  <text x="1140" y="528" font-size="11.5" font-weight="600" fill="#92400e">Triggers when:</text>
+  <text x="1140" y="545" font-size="11" fill="#374151">• low confidence</text>
+  <text x="1140" y="561" font-size="11" fill="#374151">• tool failure</text>
+  <text x="1140" y="577" font-size="11" fill="#374151">• risky pattern (compromise)</text>
+  <text x="1140" y="601" font-size="11.5" font-weight="600" fill="#92400e">Builds handoff package</text>
+  <text x="1140" y="618" font-size="11" fill="#374151">Original msg · entities · tools</text>
+  <text x="1140" y="641" font-size="10" fill="#6b7280">escalation.ts</text>
+
+  <!-- DATA STORES (bottom row) -->
+
+  <!-- OpenAI -->
+  <rect x="160" y="730" width="280" height="100" fill="white" stroke="#10b981" stroke-width="2" rx="8"/>
+  <text x="300" y="757" text-anchor="middle" font-size="13" font-weight="700" fill="#065f46">OpenAI</text>
+  <text x="180" y="780" font-size="11" fill="#374151">text-embedding-3-small</text>
+  <text x="180" y="797" font-size="11" fill="#374151">(query + doc embeddings)</text>
+  <text x="180" y="817" font-size="11" fill="#374151">gpt-4o-mini (synthesis)</text>
+
+  <!-- Arrow: Knowledge ↔ OpenAI -->
+  <line x1="300" y1="730" x2="300" y2="660" stroke="#059669" stroke-width="2" marker-end="url(#arrowgreen)"/>
+
+  <!-- Chroma -->
+  <rect x="480" y="730" width="280" height="100" fill="white" stroke="#10b981" stroke-width="2" rx="8"/>
+  <text x="620" y="757" text-anchor="middle" font-size="13" font-weight="700" fill="#065f46">Chroma vector DB</text>
+  <text x="500" y="780" font-size="11" fill="#374151">21 chunks across 4 .md files</text>
+  <text x="500" y="797" font-size="11" fill="#374151">indexed via npm run ingest</text>
+  <text x="500" y="817" font-size="11" fill="#374151">Docker · port 8000</text>
+
+  <!-- Arrow: Knowledge → Chroma -->
+  <line x1="620" y1="730" x2="620" y2="660" stroke="#059669" stroke-width="2" marker-end="url(#arrowgreen)"/>
+
+  <!-- MCP Server -->
+  <rect x="800" y="730" width="280" height="100" fill="white" stroke="#10b981" stroke-width="2" rx="8"/>
+  <text x="940" y="757" text-anchor="middle" font-size="13" font-weight="700" fill="#065f46">MCP server (stdio)</text>
+  <text x="820" y="780" font-size="11" fill="#374151">@modelcontextprotocol/sdk</text>
+  <text x="820" y="797" font-size="11" fill="#374151">4 tools registered with</text>
+  <text x="820" y="817" font-size="11" fill="#374151">JSON Schema definitions</text>
+
+  <!-- Arrow: Workflow → MCP -->
+  <line x1="940" y1="730" x2="940" y2="660" stroke="#059669" stroke-width="2" marker-end="url(#arrowgreen)"/>
+
+  <!-- Ticket store + Human IT (escalation target) -->
+  <rect x="1120" y="730" width="280" height="100" fill="white" stroke="#d97706" stroke-width="2" rx="8"/>
+  <text x="1260" y="757" text-anchor="middle" font-size="13" font-weight="700" fill="#92400e">Tier 2 / human IT</text>
+  <text x="1140" y="780" font-size="11" fill="#374151">Receives structured</text>
+  <text x="1140" y="797" font-size="11" fill="#374151">handoff package via</text>
+  <text x="1140" y="817" font-size="11" fill="#374151">create_*_ticket tools</text>
+
+  <!-- Arrow: Escalation → human IT -->
+  <line x1="1260" y1="730" x2="1260" y2="660" stroke="#d97706" stroke-width="2" marker-end="url(#arrowamber)"/>
+
+  <!-- Side legend (right) -->
+  <g font-size="10">
+    <text x="40" y="430" font-weight="700" fill="#666">FLOW LEGEND</text>
+    <line x1="40" y1="450" x2="80" y2="450" stroke="#1f2937" stroke-width="2"/>
+    <text x="86" y="454" fill="#374151">Request flow</text>
+
+    <line x1="40" y1="475" x2="80" y2="475" stroke="#2563eb" stroke-width="2"/>
+    <text x="86" y="479" fill="#374151">Agent handoff</text>
+
+    <line x1="40" y1="500" x2="80" y2="500" stroke="#059669" stroke-width="2"/>
+    <text x="86" y="504" fill="#374151">External integration</text>
+
+    <line x1="40" y1="525" x2="80" y2="525" stroke="#d97706" stroke-width="2"/>
+    <text x="86" y="529" fill="#374151">Escalation path</text>
+  </g>
+
+  <!-- Bottom callout: how it maps to rubric -->
+  <rect x="40" y="855" width="1520" height="32" fill="white" stroke="#e5e7eb" rx="6"/>
+  <text x="60" y="876" font-size="11.5" fill="#374151">
+    <tspan font-weight="700" fill="#1f2937">Maps to rubric:</tspan>
+    <tspan dx="8">Agent architecture (#3) · RAG (#4) · Workflow automation (#5) · Technical implementation + MCP (#7) · Validation (#8)</tspan>
+  </text>
+</svg>

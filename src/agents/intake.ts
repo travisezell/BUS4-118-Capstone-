@@ -20,7 +20,7 @@
  * intent-classification prompt and JSON-parse the result.
  */
 
-import type { Entities, Intent } from "./types";
+import type { Entities, Intent, Message } from "./types";
 
 interface IntakeResult {
   intent: Intent;
@@ -319,7 +319,46 @@ function extractCause(message: string): string | undefined {
   return undefined;
 }
 
-export function classify(userMessage: string): IntakeResult {
+/**
+ * Detect referential follow-ups like "what's the status of that?",
+ * "is it done?", "any update?", "the request I just made". Returns
+ * true when the message is short and uses a pronoun or generic
+ * reference to the previous turn rather than naming a specific
+ * ticket or tool.
+ */
+const FOLLOWUP_PATTERNS: RegExp[] = [
+  /\b(?:status of|update on)\s+(?:that|it|this|my (?:request|ticket))\b/i,
+  /^\s*(?:any|got an?)\s+(?:update|news)\b/i,
+  /^\s*(?:is|has)\s+(?:that|it|this|my (?:request|ticket))\s+(?:done|ready|approved|finished|resolved)/i,
+  /\b(?:what about|how about)\s+(?:that|it|this)\b/i,
+  /\bthe\s+(?:request|ticket|one)\s+(?:i\s+(?:just\s+)?(?:made|opened|filed|submitted)|from\s+(?:earlier|before|just now))\b/i,
+  /^\s*(?:check|look up)\s+(?:that|it|the\s+status)\b/i,
+];
+
+/**
+ * Pull the most recently surfaced ticket ID from the conversation
+ * history. Looks at the assistant's previous responses for ticket-like
+ * identifiers (INC-XXXX, REQ-XXXX, etc.) the system has already
+ * created or referenced. Used when the user follows up with "what's
+ * the status of that?" without restating the ID.
+ */
+function findRecentTicketIdInHistory(
+  history: Message[]
+): string | undefined {
+  // Walk backwards through history (most recent first).
+  for (let i = history.length - 1; i >= 0; i--) {
+    const msg = history[i];
+    if (msg.role !== "assistant") continue;
+    const match = msg.content.match(/\b([A-Z]{2,5}[-_]?\d{2,6})\b/);
+    if (match) return match[1].toUpperCase();
+  }
+  return undefined;
+}
+
+export function classify(
+  userMessage: string,
+  history: Message[] = []
+): IntakeResult {
   const lc = lower(userMessage.trim());
   const entities: Entities = {};
 
@@ -355,6 +394,24 @@ export function classify(userMessage: string): IntakeResult {
 
   const cause = extractCause(userMessage);
   if (cause) entities.cause = cause;
+
+  // Follow-up reference resolution. When the user asks a referential
+  // question like "what's the status of that?" or "any update?" without
+  // restating the ticket ID, look back through the conversation
+  // history for the most recently surfaced ID and use it.
+  const isFollowUp = FOLLOWUP_PATTERNS.some((re) => re.test(userMessage));
+  if (isFollowUp && !entities.ticketId && history.length > 0) {
+    const recentTicketId = findRecentTicketIdInHistory(history);
+    if (recentTicketId) {
+      entities.ticketId = recentTicketId;
+      // Confident this is a status check on the referenced ticket.
+      return {
+        intent: "ticket_status",
+        entities,
+        confidence: 0.85,
+      };
+    }
+  }
 
   // High-confidence early exit: any signal of account compromise routes
   // straight to account_help so Workflow can open a P1 ticket and

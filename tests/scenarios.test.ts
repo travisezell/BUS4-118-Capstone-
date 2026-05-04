@@ -238,3 +238,42 @@ describe("Edge cases (PRD §14.4)", () => {
     expect(res.answer).toContain("INC-1042");
   });
 });
+
+describe("Conversation memory (multi-turn)", () => {
+  it("'what's the status of that?' resolves to the ticket from a prior assistant turn", async () => {
+    // Simulate a prior turn where the assistant referenced INC-1042.
+    const history = [
+      { role: "user" as const, content: "I need access to Figma" },
+      {
+        role: "assistant" as const,
+        content:
+          "I've submitted an access request for **Figma** — request ID `INC-1042`, status `waiting_on_approval`.",
+      },
+    ];
+    const res = await handleMessage("what's the status of that?", history);
+    expect(res.intent).toBe("ticket_status");
+    expect(res.entities.ticketId).toBe("INC-1042");
+    expect(res.escalated).toBe(false);
+    expect(res.answer).toMatch(/manager approval|waiting/i);
+  });
+
+  it("'any update?' as a bare follow-up pulls the ticket from history", async () => {
+    const history = [
+      { role: "user" as const, content: "I'm locked out" },
+      {
+        role: "assistant" as const,
+        content:
+          "I've opened account support ticket `ACC-2001` for you (status: `open`).",
+      },
+    ];
+    const res = await handleMessage("any update?", history);
+    expect(res.intent).toBe("ticket_status");
+    expect(res.entities.ticketId).toBe("ACC-2001");
+  });
+
+  it("follow-up with no history falls through normally (no fake ticket extraction)", async () => {
+    const res = await handleMessage("what's the status of that?", []);
+    // No history means no ticket to reference. Should not invent one.
+    expect(res.entities.ticketId).toBeUndefined();
+  });
+});

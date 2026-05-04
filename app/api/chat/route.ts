@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { handleMessage } from "@/src/agents/orchestrator";
+import {
+  handleMessage,
+  handleMessageStreaming,
+} from "@/src/agents/orchestrator";
 import type { Message } from "@/src/agents/types";
 
 export const runtime = "nodejs";
@@ -42,6 +45,47 @@ export async function POST(req: Request) {
     );
   }
 
+  // Streaming path (Server-Sent Events). Opt-in via ?stream=1.
+  // Keeps the JSON path as the safe default for backwards compatibility
+  // and for the tests, which run synchronously.
+  const url = new URL(req.url);
+  const isStream = url.searchParams.get("stream") === "1";
+
+  if (isStream) {
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          for await (const event of handleMessageStreaming(trimmed, history)) {
+            // SSE format: each event is `data: <json>\n\n`.
+            const payload = `data: ${JSON.stringify(event)}\n\n`;
+            controller.enqueue(encoder.encode(payload));
+          }
+          controller.close();
+        } catch (err) {
+          const errEvent = {
+            kind: "error",
+            message: err instanceof Error ? err.message : "Stream failed",
+          };
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify(errEvent)}\n\n`)
+          );
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no", // disable proxy buffering
+      },
+    });
+  }
+
+  // Non-streaming JSON path (default).
   const result = await handleMessage(trimmed, history);
   return NextResponse.json({
     response: result.answer,
@@ -60,6 +104,6 @@ export async function POST(req: Request) {
 export async function GET() {
   return NextResponse.json({
     ok: true,
-    info: "POST a JSON body { message: string, history?: Message[] } to chat with the agent.",
+    info: "POST a JSON body { message: string, history?: Message[] } to chat with the agent. Append ?stream=1 to receive Server-Sent Events.",
   });
 }

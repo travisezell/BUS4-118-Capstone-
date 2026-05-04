@@ -151,7 +151,7 @@ function toAgentState(s: GraphStateType): AgentState {
 // ──────────────────────────────────────────────────────────────────────
 
 async function intakeNode(state: GraphStateType): Promise<GraphUpdate> {
-  const result = classify(state.userMessage);
+  const result = classify(state.userMessage, state.conversationHistory);
   return {
     intent: result.intent,
     entities: result.entities,
@@ -512,3 +512,151 @@ export async function handleMessage(
     latencyMs,
   };
 }
+
+/**
+ * Streaming variant of `handleMessage`. Yields events as the graph
+ * progresses through each agent so the UI can show real time progress
+ * instead of waiting for the full pipeline to finish.
+ *
+ * Event shapes:
+ *   { kind: "status", label: string }   from each agent as it starts
+ *   { kind: "intent", intent, confidence, entities }   after Intake
+ *   { kind: "sources", sources: string[] }   after Knowledge
+ *   { kind: "tools", toolResults }   after Workflow
+ *   { kind: "answer_chunk", text: string }   piece of the final answer
+ *   { kind: "done", final: ChatResponse }   end of stream
+ */
+export async function* handleMessageStreaming(
+  userMessage: string,
+  conversationHistory: Message[] = []
+): AsyncGenerator<StreamEvent, void, unknown> {
+  const startedAt = Date.now();
+
+  // We accumulate partial state from each node update so we can build a
+  // proper ChatResponse at the end. LangGraph's `stream` yields one
+  // entry per node execution.
+  let accumulated: Partial<GraphStateType> = {
+    userMessage,
+    conversationHistory,
+    startedAt,
+    statusEvents: [],
+  };
+
+  // Track which events we've already emitted so we don't double emit.
+  let emittedIntent = false;
+  let emittedSources = false;
+  let emittedTools = false;
+
+  const stream = await compiled.stream(
+    {
+      userMessage,
+      conversationHistory,
+      startedAt,
+      statusEvents: [],
+    },
+    { streamMode: "updates" }
+  );
+
+  for await (const update of stream) {
+    // `update` is { nodeName: partialStateUpdate } from LangGraph.
+    for (const [nodeName, partial] of Object.entries(update)) {
+      if (!partial || typeof partial !== "object") continue;
+      const p = partial as Partial<GraphStateType>;
+      accumulated = { ...accumulated, ...p };
+
+      // Emit status events as they arrive (from any node's emit).
+      if (p.statusEvents && p.statusEvents.length > 0) {
+        for (const ev of p.statusEvents) {
+          yield {
+            kind: "status",
+            label: ev.label,
+            stage: ev.kind,
+            node: nodeName,
+          };
+        }
+      }
+
+      // After intake, emit the classification.
+      if (!emittedIntent && p.intent !== undefined) {
+        emittedIntent = true;
+        yield {
+          kind: "intent",
+          intent: p.intent ?? "unknown",
+          confidence: p.confidence ?? 0,
+          entities: p.entities ?? {},
+        };
+      }
+
+      // After knowledge, emit retrieved sources.
+      if (!emittedSources && p.retrievedChunks !== undefined) {
+        emittedSources = true;
+        yield {
+          kind: "sources",
+          sources: (p.retrievedChunks ?? []).map((c) => c.source),
+        };
+      }
+
+      // After workflow, emit tool results.
+      if (!emittedTools && p.toolResults !== undefined) {
+        emittedTools = true;
+        yield {
+          kind: "tools",
+          toolResults: p.toolResults ?? [],
+        };
+      }
+    }
+  }
+
+  // Final answer streams word-by-word for a more dynamic feel.
+  const finalAnswer = accumulated.finalAnswer ?? "";
+  const words = finalAnswer.split(/(\s+)/); // keep whitespace
+  for (const word of words) {
+    yield { kind: "answer_chunk", text: word };
+    // tiny delay so the streaming is visible to the eye
+    await new Promise((r) => setTimeout(r, 8));
+  }
+
+  const finishedAt = Date.now();
+  const latencyMs = finishedAt - startedAt;
+
+  // Telemetry (same as non streaming path).
+  logRequest({
+    userMessage,
+    intent: accumulated.intent ?? "unknown",
+    confidence: accumulated.confidence ?? 0,
+    retrievalHit: accumulated.retrievalHit ?? false,
+    toolsCalled: (accumulated.toolCalls ?? []).map((c) => c.name),
+    escalated: accumulated.escalationFlag ?? false,
+    latencyMs,
+    timestamp: finishedAt,
+  });
+
+  yield {
+    kind: "done",
+    final: {
+      answer: finalAnswer,
+      intent: accumulated.intent ?? "unknown",
+      entities: accumulated.entities ?? {},
+      confidence: accumulated.confidence ?? 0,
+      retrievedSources: (accumulated.retrievedChunks ?? []).map((c) => c.source),
+      toolResults: accumulated.toolResults ?? [],
+      escalated: accumulated.escalationFlag ?? false,
+      escalationReason: accumulated.escalationReason,
+      statusEvents: accumulated.statusEvents ?? [],
+      latencyMs,
+    },
+  };
+}
+
+export type StreamEvent =
+  | { kind: "status"; label: string; stage: string; node: string }
+  | {
+      kind: "intent";
+      intent: Intent;
+      confidence: number;
+      entities: Entities;
+    }
+  | { kind: "sources"; sources: string[] }
+  | { kind: "tools"; toolResults: ToolResult[] }
+  | { kind: "answer_chunk"; text: string }
+  | { kind: "done"; final: ChatResponse };

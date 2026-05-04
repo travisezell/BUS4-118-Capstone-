@@ -212,10 +212,17 @@ scripts/
   mcp-server.ts            # Standalone MCP server (stdio transport)
 
 docs/
-  ARCHITECTURE.md          # Component-level detail
-  TESTING.md               # 13 test scenarios documented
-  SCALING.md               # Vendor research (Moveworks, ServiceNow Now Assist, Glean)
-  kb/                      # Source IT documentation (markdown)
+  ARCHITECTURE.md                   # Component-level detail
+  TESTING.md                        # 13 test scenarios documented
+  SCALING.md                        # Vendor research (Moveworks, ServiceNow Now Assist, Glean)
+  handoff-flows.md                  # Per-scenario agent handoff narrative
+  test-results.md                   # All 18 test results with metrics
+  design-implementation-testing.md  # Unified design + impl + testing document
+  sample-conversations.md           # Demo scripts for the live walkthrough
+  diagrams/                         # User journey + architecture (SVG and PNG)
+  wireframes/                       # 4 chat UI wireframes
+  screenshots/                      # 8 demo screenshots
+  kb/                               # Source IT documentation (markdown)
     access-policies.md
     account-guidance.md
     ticket-faqs.md
@@ -230,7 +237,7 @@ docker-compose.yml         # Chroma service for local development
 ## Testing
 
 ```bash
-npm test            # run all 13 scenarios
+npm test            # run all 18 scenarios
 npm run test:watch  # watch mode
 ```
 
@@ -239,8 +246,9 @@ The test suite covers:
 - **Access help** (4 scenarios): happy path, missing tool name, unsupported tool, duplicate request
 - **Account help** (5 scenarios): standard lockout, skip-self-service, unclear, suspected compromise (vocabulary), suspected compromise (natural-language phrasing)
 - **Ticket status** (4 scenarios): valid ID, invalid ID, no ID, stale ticket
+- **Edge cases** (5 scenarios): greeting, capability question, ambiguous ticket creation, out-of-scope, natural-language account problem
 
-See [`docs/TESTING.md`](docs/TESTING.md) for scenario-level detail.
+See [`docs/test-results.md`](docs/test-results.md) for the full per-scenario results table and [`docs/TESTING.md`](docs/TESTING.md) for original scenario-level detail.
 
 Tests run against the mock providers so they pass on a fresh clone with
 no API key — that's intentional, the real RAG path is reserved for the

@@ -1,192 +1,173 @@
-# Sample Conversations · Demo Scripts
+# Sample Conversations
 
-These are the three demo scripts for the live walkthrough. Each maps to one of our three core IT flows. They're written so anyone in the group can present them — what to say, what to type, what to point at on screen.
+Three demo scripts for the live walkthrough, one per IT flow. Each has the prompt to type, what the system shows, and the talking point to use on stage. Anyone in the group can present from these notes.
 
-> **Total demo time: ~5 minutes** if you do all three back-to-back, plus a 60-second escalation bonus to close. Leaves time for slides and Q&A in a 10-minute slot.
+The demo runs about five minutes for all three, plus a one minute escalation closer.
 
----
+## 1. Access Help
 
-## Conversation 1 · Access Help (with duplicate detection)
+The setup line, before typing:
 
-**The setup line.** Before typing:
+> "First scenario is access help. Imagine I am a new designer and I need access to Figma. Watch the status indicator move through the agents, and watch the Workflow Agent. It is going to do something interesting."
 
-> "Our first scenario is access help. Let's say I'm a new designer and I need access to Figma. Watch what the Intake Agent classifies this as, and watch the Workflow Agent — it's going to do something interesting."
-
-**Type into the chat:**
+Type into the chat:
 
 ```
 I need access to Figma for the design review
 ```
 
-**What the system does (point these out as they happen):**
+What the system shows:
 
-1. The status indicator ticks through *Classifying request… → Searching IT documentation… → Submitting access request… → Composing response.* That's the live multi-agent pipeline running.
+The status indicator ticks through Classifying request, Searching IT documentation, Submitting access request, Composing response. That is the live multi agent pipeline running.
 
-2. The response shows up. **Read this part out loud** because it's the killer detail:
+The response shows up. Read this line out loud because it is the killer detail:
 
-> "You already have an open access request for **Figma** — request ID `INC-1042`, status `waiting_on_approval`."
+> "You already have an open access request for Figma, request ID INC 1042, status waiting on approval."
 
-3. The response also includes the relevant Figma access policy from the IT documentation, with a citation to `docs/kb/access-policies.md#figma`.
+The response also includes the Figma access policy, with a citation to docs/kb/access policies.md.
 
-**The talking point** (this is the slide content):
+The talking point:
 
-> "Notice the system didn't blindly create a duplicate ticket. The Workflow Agent checked the ticket store first and found INC-1042 was already open. That's not RAG. That's not just an LLM. That's an agent making a real product decision — *don't spam IT with duplicate requests.* In a real deployment, this is the kind of thing that prevents 30% of IT noise."
+> "Notice the system did not blindly create a duplicate ticket. The Workflow Agent checked the ticket store first and found INC 1042 was already open. That is not just RAG. That is not just an LLM. That is an agent making a real product decision. Do not spam IT with duplicate requests. In a real deployment this is the kind of behavior that prevents most ticket noise."
 
-**Metadata to point at:**
+Metadata to point at:
 
-- intent: `access_help`
-- confidence: 90%
-- sources: `docs/kb/access-policies.md#figma`
-- trace shows all 4 agent stages
+intent access_help, confidence 90 percent, sources cited, all four agent stages visible in the trace.
 
----
+## 2. Account Help
 
-## Conversation 2 · Account Help (self-service auto-resolve)
+The setup line:
 
-**The setup line.**
+> "Second scenario is account help. The most common IT ticket is a lockout. Let us see what happens when the system handles a routine case."
 
-> "Second scenario — account help. The most common IT ticket is a lockout. Let's see what happens when I tell the system I'm locked out, but it's a routine case."
-
-**Type into the chat:**
+Type into the chat:
 
 ```
 I'm locked out of my account
 ```
 
-**What the system does:**
+What the system shows:
 
-1. Status ticks through *Classifying… → Searching IT documentation… → Checking account recovery options… → Composing response.*
+The status indicator runs through Classifying, Searching documentation, Checking account recovery options, Composing response.
 
-2. The response gives **self-service recovery steps** grounded in the actual policy — not a ticket:
+The response gives self service recovery steps, grounded in the actual policy, not a ticket:
 
-> "Here's what to try first. Most account lockouts after too many failed login attempts auto-clear in 15 minutes. If you are still locked out, use the 'Forgot password' link on the SSO sign-in page…"
+> "Here is what to try first. Most account lockouts after too many failed login attempts auto clear in 15 minutes. If you are still locked out, use the Forgot password link on the SSO sign in page."
 
-3. **No ticket gets created**, no human IT involvement, no escalation card. The system resolved it from documentation.
+No ticket gets created. No human IT involvement. No escalation card.
 
-**The talking point:**
+The talking point:
 
-> "This is what auto-resolve looks like. In a traditional ticketing system, this user just opened a P3 ticket and is now waiting 1-3 business days. Our Knowledge Agent grounded the answer in our actual lockout policy — citation visible — and the Workflow Agent decided NOT to create a ticket because the user didn't ask for one. That's auto-resolve. That's the metric Moveworks reports as 75% in production. We're at 64% on our test set with deliberately tricky scenarios."
+> "This is what auto resolve looks like. In a traditional ticketing system this user just opened a low priority ticket and is now waiting one to three business days. Our Knowledge Agent grounded the answer in our actual lockout policy, citation visible, and the Workflow Agent decided not to create a ticket because the user did not ask for one. That is auto resolve. That is the metric Moveworks reports as around 75 percent in production. We are at 64 percent on a small test set with deliberately tricky scenarios."
 
-**Metadata to point at:**
+Metadata to point at:
 
-- intent: `account_help`
-- confidence: 75%
-- sources: lockout-recovery + password-reset chunks
-- **no escalation, no tools called** — this is the self-service path
+intent account_help, confidence 75 percent, two source chunks cited, no escalation, no tools called.
 
----
+## 3. Ticket Status
 
-## Conversation 3 · Ticket Status (lookup via real MCP tool)
+The setup line:
 
-**The setup line.**
+> "Third scenario, ticket status. The most boring IT use case in the world, but the one users complain about most. Let us see how it goes."
 
-> "Third scenario — ticket status. The most boring IT use case in the world, but the one users complain about most. Let's see how it goes."
-
-**Type into the chat:**
+Type into the chat:
 
 ```
 What's the status of INC-1042?
 ```
 
-**What the system does:**
+What the system shows:
 
-1. Notice the status indicator is **shorter than before** — it skips the docs-search phase. *Classifying… → Looking up ticket status… → Composing response.* That's the LangGraph conditional edge in action — `ticket_status` intent skips the Knowledge node because the tool returns structured data.
+The status indicator is shorter than before. It skips the docs search phase. Classifying, Looking up ticket status, Composing response. That is the LangGraph conditional edge in action. The ticket_status intent skips the Knowledge node because the tool returns structured data directly.
 
-2. The response comes back fast (*usually under 100ms*):
+The response comes back fast, usually under 100ms:
 
-> "Your ticket is waiting on a manager approval. Assigned to: **Manager Approval Queue.** Last updated: 2026-05-03. Next step: Waiting on your manager to approve. Ping them on Slack if it's urgent."
+> "Your ticket is waiting on a manager approval. Assigned to Manager Approval Queue. Last updated 2026 05 03. Next step is to ping your manager on Slack if it is urgent."
 
-**The talking point:**
+The talking point:
 
-> "Two things to notice. First, the response time — under 100ms, because we skipped the document retrieval step the LangGraph routing logic decided we don't need. Second, the response is plain language, not raw status fields. The Knowledge Agent translated `state: waiting_on_approval` into 'waiting on a manager approval' and added a clear next step. Our principle: never make the user decode IT system jargon."
+> "Two things to notice. First, the response time is under 100ms because we skipped the document retrieval step that the LangGraph routing logic decided we did not need. Second, the response is plain language, not raw status fields. The Knowledge Agent translated the internal state, waiting on approval, into a real sentence and added a clear next step. Our principle is to never make the user decode IT jargon."
 
-**Metadata to point at:**
+Metadata to point at:
 
-- intent: `ticket_status`
-- confidence: 95% (very high — there was a clear ticket ID)
-- tools called: `get_ticket_status` ✓
-- latency: very low
+intent ticket_status, confidence 95 percent, very high because there was a clear ticket ID, tool get_ticket_status succeeded, latency very low.
 
----
+## 4. Suspected Compromise (the closer)
 
-## Bonus · Suspected Compromise (for the dramatic close)
+This shows the system's safety reasoning. When to escalate.
 
-This is the prompt that shows the system's **safety reasoning** — when to escalate.
+The setup line:
 
-**The setup line.**
+> "Last one. Let us see what happens with a request the system should not try to solve on its own."
 
-> "Last one. Let's see what happens with a request the system shouldn't try to solve on its own."
-
-**Type into the chat:**
+Type into the chat:
 
 ```
 Someone logged into my account from another country and I didn't do it
 ```
 
-**What the system does:**
+What the system shows:
 
-1. Status indicator runs through *Classifying… → Searching IT documentation… → Checking account recovery options… → Escalating to human IT.* Notice the last stage — it's different from the other demos.
+The status indicator runs through Classifying, Searching documentation, Checking account recovery options, Escalating to human IT. Notice the last stage. It is different from the other demos.
 
-2. The response is in an **amber escalation card**, visually distinct from the green success states:
+The response is in an amber escalation card, visually distinct from the green success states:
 
-> "I'm not confident I can resolve this on my own, so I'm handing it off to human IT. **What I'm sending them:** Your original request: '[the message]', Category: account_help, Cause: suspected_compromise, Tools tried: create_account_ticket. **Reason for handoff: Suspected compromise — flagged as high priority for security review.**"
+> "I am not confident I can resolve this on my own, so I am handing it off to human IT. Original request, category account_help, cause suspected_compromise, tools tried create_account_ticket. Reason for handoff, suspected compromise flagged as high priority for security review."
 
-3. A real ticket gets created (e.g., `ACC-2001`) and the system flagged it for security.
+A real ticket gets created, for example ACC 2001, and the system flagged it for security.
 
-**The talking point:**
+The talking point:
 
-> "This is the system telling the user 'I'm not going to try to fix this — a human needs to look at it.' Notice three things. First, the Intake Agent picked up 'suspected_compromise' even though the user never used the word 'compromised' or 'hacked' — it understood 'someone logged in from another country' as natural language. Second, the system still created a ticket, but it's a P1 security ticket, not a routine one. Third, the handoff package contains everything the human Tier 2 analyst needs — they don't have to re-interview the user. **Auto-resolve is the easy metric. Knowing when not to auto-resolve is the hard one.**"
+> "This is the system telling the user, I am not going to try to fix this. A human needs to look at it. Notice three things. First, the Intake Agent picked up suspected compromise even though the user never used the words compromised or hacked. It understood logged in from another country as natural language. Second, the system still created a ticket, but it is a high priority security ticket, not a routine one. Third, the handoff package contains everything a Tier 2 analyst needs. They do not have to re interview the user. Auto resolve is the easy metric. Knowing when not to auto resolve is the hard one."
 
-**Metadata to point at:**
+Metadata to point at:
 
-- intent: `account_help`
-- confidence: 90%
-- cause: `suspected_compromise`
-- tools called: `create_account_ticket` ✓
-- **escalated** (amber card)
-
----
+intent account_help, confidence 90 percent, cause suspected_compromise, escalated, amber card, tool create_account_ticket succeeded.
 
 ## Demo flow recommendations
 
 ### Order
 
-1. **Access help** (Figma) — **opens with a wow moment** (duplicate detection). Sets expectation that this is more than a chatbot.
-2. **Account help** (lockout) — shows auto-resolve. The "happy path" of automation.
-3. **Ticket status** (INC-1042) — shows speed + plain-language translation. Quick.
-4. **Compromise escalation** — the dramatic close. Shows the system has judgment.
+1. Access help, the Figma example. Opens with a strong moment, the duplicate detection. Sets the expectation that this is more than a chatbot.
+2. Account help, the lockout. Shows auto resolve, the happy path of automation.
+3. Ticket status, INC 1042. Shows speed and plain language translation. Quick.
+4. Compromise escalation. The dramatic close. Shows the system has judgment.
 
 ### Pacing
 
-- Don't read the chat responses verbatim — paraphrase. The screen shows the words; you provide the framing.
-- Pause after each prompt while the status indicator runs. Let the audience see the pipeline working.
-- After each response, point at one piece of metadata (intent, confidence, sources, latency) and explain why it matters. **One per demo, don't drown them in details.**
+Do not read the chat responses verbatim. Paraphrase. The screen shows the words. You provide the framing.
+
+Pause after each prompt while the status indicator runs. Let the audience see the pipeline working.
+
+After each response, point at one piece of metadata, intent or confidence or sources or latency, and explain why it matters. One per demo. Do not drown the audience in details.
 
 ### Refresh between demos
 
-Hit refresh in the browser between conversations 1, 2, and 3 so the screen is clean. **Exception:** for the compromise close, leave the previous conversation visible — it makes the amber escalation card stand out by contrast.
+Hit refresh in the browser between conversations 1, 2, and 3 so the screen is clean. For the compromise close, leave the previous conversation visible. The amber escalation card stands out by contrast.
 
-### What NOT to do during the demo
+### What not to do during the demo
 
-- **Don't open the Inspector during the live demo flow.** Save Inspector for a separate slide where you walk through it deliberately. Mid-demo screen-switching kills momentum.
-- **Don't apologize for mocked components.** The ticket store is in-memory but it functions identically to a real one for demo purposes. Don't draw attention to it unless asked.
-- **Don't try to demo `/api/metrics` live.** Talk about the numbers from a slide. Live JSON pages are bad demo screens.
+Do not open MCP Inspector during the live demo flow. Save Inspector for a separate slide where you walk through it deliberately. Mid demo screen switching kills momentum.
+
+Do not apologize for mocked components. The ticket store is in memory but it functions identically to a real one for demo purposes. Do not draw attention to it unless asked.
+
+Do not try to demo the metrics page live. Talk about the numbers from a slide. Live JSON pages are a bad demo screen.
 
 ### If the live demo crashes
 
-Two backup plans:
-1. **Recorded screen capture.** Record a clean run of the 4 demos this weekend and have it ready as a backup MP4 on Travis's laptop.
-2. **Screenshots.** All 8 screenshots are in `docs/screenshots/` — switch to the slide with screenshots and walk through them as if they were live.
+Two backup plans.
 
----
+Recorded screen capture. Record a clean run of all four demos this weekend and have it ready as a backup video on a presenter's laptop.
+
+Screenshots. All eight screenshots are in docs/screenshots. Switch to the slide with screenshots and walk through them as if they were live.
 
 ## Connection to slides
 
-Each conversation has natural slide companions:
+Each conversation has natural slide companions.
 
-| Conversation | Best slide context | Rubric items |
-|---|---|---|
-| 1 · Figma access | "How the agents collaborate" | #3 (agent architecture), #5 (workflow automation) |
-| 2 · Lockout | "What auto-resolve looks like" | #4 (RAG), #5 (workflow automation), #8 (validation) |
-| 3 · INC-1042 | "Why we use LangGraph conditional edges" | #3 (architecture), #7 (technical implementation) |
-| 4 · Compromise (bonus) | "When the system refuses to auto-resolve" | #2 (product ownership), #5 (workflow), #9 (trade-offs) |
+| Conversation | Slide context |
+|---|---|
+| 1, Figma access | How the agents collaborate. |
+| 2, Lockout | What auto resolve looks like. |
+| 3, INC 1042 | Why we use LangGraph conditional edges. |
+| 4, Compromise | When the system refuses to auto resolve. |

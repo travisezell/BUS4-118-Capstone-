@@ -80,7 +80,8 @@ questions like Wi-Fi setup and password rules.
 ```
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for component-level
-detail and message flow.
+detail and message flow. A polished slide-ready diagram is in
+[`docs/diagrams/architecture.svg`](docs/diagrams/architecture.svg).
 
 ---
 

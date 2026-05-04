@@ -1,0 +1,84 @@
+<svg viewBox="0 0 1280 800" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
+  <rect width="1280" height="800" fill="#fafafa"/>
+
+  <text x="40" y="40" font-size="20" font-weight="700" fill="#222">Wireframe 3 · Escalation state</text>
+  <text x="40" y="62" font-size="13" fill="#666">Visual distinction so users know it's NOT auto-resolved</text>
+
+  <!-- Browser frame -->
+  <rect x="40" y="90" width="820" height="660" fill="white" stroke="#aaa" stroke-width="1.5" rx="8"/>
+  <rect x="40" y="90" width="820" height="32" fill="#eee" stroke="#aaa" stroke-width="1.5" rx="8"/>
+  <circle cx="60" cy="106" r="5" fill="#bbb"/>
+  <circle cx="78" cy="106" r="5" fill="#bbb"/>
+  <circle cx="96" cy="106" r="5" fill="#bbb"/>
+
+  <text x="80" y="160" font-size="22" font-weight="700" fill="#222">IT Support Assistant</text>
+  <text x="80" y="180" font-size="12" fill="#888">Group 5 · BUS 118S Capstone</text>
+
+  <!-- USER message -->
+  <rect x="280" y="220" width="500" height="60" fill="#0a7" rx="12"/>
+  <text x="300" y="247" font-size="13" fill="white">Someone logged into my account from another</text>
+  <text x="300" y="267" font-size="13" fill="white">country and I didn't do it</text>
+  <text x="772" y="295" font-size="10" fill="#888" text-anchor="end">10:18 AM · you</text>
+
+  <!-- ESCALATION response — amber treatment -->
+  <rect x="80" y="320" width="700" height="290" fill="#fffbeb" stroke="#f59e0b" stroke-width="2" rx="12"/>
+
+  <!-- Amber status strip -->
+  <rect x="80" y="320" width="700" height="36" fill="#fef3c7" stroke="#f59e0b" stroke-width="2" rx="12"/>
+  <text x="100" y="342" font-size="14" fill="#92400e">⚠</text>
+  <text x="118" y="342" font-size="11" font-weight="700" fill="#92400e">ESCALATED</text>
+  <text x="200" y="342" font-size="11" fill="#92400e">account_help · suspected_compromise</text>
+  <text x="430" y="342" font-size="11" fill="#92400e">confidence: 90%</text>
+  <text x="555" y="342" font-size="11" fill="#92400e">tool: create_account_ticket ✓</text>
+
+  <!-- Body -->
+  <text x="100" y="385" font-size="14" font-weight="700" fill="#92400e">Handing off to human IT</text>
+  <text x="100" y="408" font-size="12" fill="#555">I opened a high-priority ticket and flagged it for Security.</text>
+
+  <text x="100" y="438" font-size="11" font-weight="600" fill="#666">WHAT I'M SENDING THEM:</text>
+  <text x="100" y="458" font-size="11" fill="#444">• Original message: "Someone logged in from another country..."</text>
+  <text x="100" y="476" font-size="11" fill="#444">• Category: account_help · cause: suspected_compromise</text>
+  <text x="100" y="494" font-size="11" fill="#444">• Action taken: create_account_ticket → ACC-2001</text>
+  <text x="100" y="512" font-size="11" fill="#444">• Reason: Suspected compromise — high priority for security review</text>
+
+  <!-- Ticket badge -->
+  <rect x="100" y="540" width="200" height="32" fill="white" stroke="#92400e" rx="16"/>
+  <circle cx="118" cy="556" r="5" fill="#dc2626"/>
+  <text x="135" y="561" font-size="12" font-weight="600" fill="#92400e">Ticket ACC-2001 · P1</text>
+
+  <!-- Input area -->
+  <rect x="80" y="650" width="700" height="50" fill="white" stroke="#aaa" stroke-width="1.5" rx="25"/>
+  <text x="105" y="681" font-size="13" fill="#aaa">Type your IT question...</text>
+  <rect x="720" y="660" width="50" height="30" fill="#222" rx="15"/>
+  <text x="735" y="680" font-size="12" fill="white" font-weight="600">→</text>
+
+  <!-- Annotation panel -->
+  <line x1="900" y1="100" x2="900" y2="750" stroke="#222" stroke-width="2"/>
+  <text x="920" y="120" font-size="14" font-weight="700" fill="#222">DESIGN DECISIONS</text>
+
+  <text x="920" y="160" font-size="12" font-weight="600" fill="#d97706">① Amber means "not auto-resolved"</text>
+  <text x="920" y="180" font-size="11" fill="#555">Distinct from green success state. The</text>
+  <text x="920" y="196" font-size="11" fill="#555">user instantly knows a human is now in</text>
+  <text x="920" y="212" font-size="11" fill="#555">the loop. No false reassurance.</text>
+
+  <text x="920" y="250" font-size="12" font-weight="600" fill="#d97706">② Show the handoff package</text>
+  <text x="920" y="270" font-size="11" fill="#555">Listing exactly what we're sending to</text>
+  <text x="920" y="286" font-size="11" fill="#555">human IT means the user can correct</text>
+  <text x="920" y="302" font-size="11" fill="#555">misunderstandings before the ticket lands.</text>
+
+  <text x="920" y="340" font-size="12" font-weight="600" fill="#d97706">③ Ticket badge for closure</text>
+  <text x="920" y="360" font-size="11" fill="#555">User sees "ACC-2001 · P1" so they know</text>
+  <text x="920" y="376" font-size="11" fill="#555">the request didn't disappear into the void.</text>
+  <text x="920" y="392" font-size="11" fill="#555">Ticket ID is the trust anchor.</text>
+
+  <text x="920" y="430" font-size="12" font-weight="600" fill="#d97706">④ Cause-aware routing</text>
+  <text x="920" y="450" font-size="11" fill="#555">"suspected_compromise" routes to Security</text>
+  <text x="920" y="466" font-size="11" fill="#555">tier, not generic Tier 2. Visible in the strip</text>
+  <text x="920" y="482" font-size="11" fill="#555">so the user sees we recognized severity.</text>
+
+  <text x="920" y="525" font-size="12" font-weight="600" fill="#888">SAFETY PRINCIPLES</text>
+  <text x="920" y="548" font-size="11" fill="#666">• Don't pretend to resolve what we can't</text>
+  <text x="920" y="566" font-size="11" fill="#666">• Make the AI's confidence visible</text>
+  <text x="920" y="584" font-size="11" fill="#666">• Always provide a real human fallback</text>
+  <text x="920" y="602" font-size="11" fill="#666">• Surface the routing logic, don't hide it</text>
+</svg>

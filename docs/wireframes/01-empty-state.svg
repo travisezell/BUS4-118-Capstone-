@@ -1,0 +1,80 @@
+<svg viewBox="0 0 1280 800" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
+  <rect width="1280" height="800" fill="#fafafa"/>
+
+  <text x="40" y="40" font-size="20" font-weight="700" fill="#222">Wireframe 1 · Empty state</text>
+  <text x="40" y="62" font-size="13" fill="#666">First impression — what a new user sees on load</text>
+
+  <!-- Browser frame -->
+  <rect x="40" y="90" width="820" height="660" fill="white" stroke="#aaa" stroke-width="1.5" rx="8"/>
+  <rect x="40" y="90" width="820" height="32" fill="#eee" stroke="#aaa" stroke-width="1.5" rx="8"/>
+  <circle cx="60" cy="106" r="5" fill="#bbb"/>
+  <circle cx="78" cy="106" r="5" fill="#bbb"/>
+  <circle cx="96" cy="106" r="5" fill="#bbb"/>
+  <rect x="120" y="98" width="700" height="16" fill="white" stroke="#ccc" rx="3"/>
+  <text x="130" y="111" font-size="11" fill="#888">localhost:3000</text>
+
+  <!-- App header -->
+  <text x="80" y="160" font-size="22" font-weight="700" fill="#222">IT Support Assistant</text>
+  <text x="80" y="180" font-size="12" fill="#888">Group 5 · BUS 118S Capstone</text>
+
+  <!-- Welcome bubble -->
+  <rect x="80" y="210" width="540" height="100" fill="#f4f4f5" stroke="#ddd" rx="10"/>
+  <text x="100" y="240" font-size="14" fill="#222">Hi — I'm your IT support assistant.</text>
+  <text x="100" y="262" font-size="13" fill="#555">I can help with access requests, account lockouts,</text>
+  <text x="100" y="280" font-size="13" fill="#555">and ticket status — plus general IT questions.</text>
+  <text x="100" y="298" font-size="12" fill="#888" font-style="italic">Try a sample prompt below or type your own request.</text>
+
+  <!-- Sample prompts -->
+  <text x="80" y="350" font-size="12" font-weight="600" fill="#666">SAMPLE PROMPTS</text>
+
+  <rect x="80" y="365" width="370" height="44" fill="white" stroke="#888" stroke-width="1.2" rx="22"/>
+  <text x="100" y="392" font-size="13" fill="#333">▸ I need access to Figma for the design review</text>
+
+  <rect x="460" y="365" width="370" height="44" fill="white" stroke="#888" stroke-width="1.2" rx="22"/>
+  <text x="480" y="392" font-size="13" fill="#333">▸ I'm locked out of my account</text>
+
+  <rect x="80" y="420" width="370" height="44" fill="white" stroke="#888" stroke-width="1.2" rx="22"/>
+  <text x="100" y="447" font-size="13" fill="#333">▸ What's the status of INC-1042?</text>
+
+  <rect x="460" y="420" width="370" height="44" fill="white" stroke="#888" stroke-width="1.2" rx="22"/>
+  <text x="480" y="447" font-size="13" fill="#333">▸ How do I connect to office Wi-Fi?</text>
+
+  <!-- Input area -->
+  <rect x="80" y="650" width="700" height="50" fill="white" stroke="#aaa" stroke-width="1.5" rx="25"/>
+  <text x="105" y="681" font-size="13" fill="#aaa">Type your IT question...</text>
+  <rect x="720" y="660" width="50" height="30" fill="#222" rx="15"/>
+  <text x="735" y="680" font-size="12" fill="white" font-weight="600">→</text>
+
+  <!-- Footer -->
+  <text x="80" y="725" font-size="10" fill="#999">Real OpenAI + Chroma RAG · Live MCP tool integration · Mock ticket store</text>
+
+  <!-- Annotation panel -->
+  <line x1="900" y1="100" x2="900" y2="750" stroke="#222" stroke-width="2"/>
+  <text x="920" y="120" font-size="14" font-weight="700" fill="#222">DESIGN DECISIONS</text>
+
+  <text x="920" y="160" font-size="12" font-weight="600" fill="#0a7">① Welcome message states scope</text>
+  <text x="920" y="180" font-size="11" fill="#555">Users immediately know what the assistant</text>
+  <text x="920" y="196" font-size="11" fill="#555">can — and can't — do. Reduces dead-end</text>
+  <text x="920" y="212" font-size="11" fill="#555">prompts that would just escalate.</text>
+
+  <text x="920" y="250" font-size="12" font-weight="600" fill="#0a7">② Sample prompts as one-tap pills</text>
+  <text x="920" y="270" font-size="11" fill="#555">Each maps to one of the 3 implemented IT</text>
+  <text x="920" y="286" font-size="11" fill="#555">flows + a knowledge-only Q&amp;A. Reduces</text>
+  <text x="920" y="302" font-size="11" fill="#555">decision paralysis on first use.</text>
+
+  <text x="920" y="340" font-size="12" font-weight="600" fill="#0a7">③ Single-text-input pattern</text>
+  <text x="920" y="360" font-size="11" fill="#555">No dropdowns, no category picker. The</text>
+  <text x="920" y="376" font-size="11" fill="#555">Intake Agent classifies intent — shifting</text>
+  <text x="920" y="392" font-size="11" fill="#555">cognitive load from user to system.</text>
+
+  <text x="920" y="430" font-size="12" font-weight="600" fill="#0a7">④ Honest footer about stack</text>
+  <text x="920" y="450" font-size="11" fill="#555">States what's real (RAG, MCP) and what's</text>
+  <text x="920" y="466" font-size="11" fill="#555">mocked (ticket store). Builds trust by not</text>
+  <text x="920" y="482" font-size="11" fill="#555">overselling.</text>
+
+  <text x="920" y="525" font-size="12" font-weight="600" fill="#888">PRINCIPLES</text>
+  <text x="920" y="548" font-size="11" fill="#666">• Progressive disclosure</text>
+  <text x="920" y="566" font-size="11" fill="#666">• Sample-led onboarding</text>
+  <text x="920" y="584" font-size="11" fill="#666">• Honest capability framing</text>
+  <text x="920" y="602" font-size="11" fill="#666">• Calm, unfussy visual hierarchy</text>
+</svg>

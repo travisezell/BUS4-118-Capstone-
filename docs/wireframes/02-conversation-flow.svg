@@ -1,0 +1,82 @@
+<svg viewBox="0 0 1280 800" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
+  <rect width="1280" height="800" fill="#fafafa"/>
+
+  <text x="40" y="40" font-size="20" font-weight="700" fill="#222">Wireframe 2 · Successful flow with trust signals</text>
+  <text x="40" y="62" font-size="13" fill="#666">Mid-conversation — ticket status lookup</text>
+
+  <!-- Browser frame -->
+  <rect x="40" y="90" width="820" height="660" fill="white" stroke="#aaa" stroke-width="1.5" rx="8"/>
+  <rect x="40" y="90" width="820" height="32" fill="#eee" stroke="#aaa" stroke-width="1.5" rx="8"/>
+  <circle cx="60" cy="106" r="5" fill="#bbb"/>
+  <circle cx="78" cy="106" r="5" fill="#bbb"/>
+  <circle cx="96" cy="106" r="5" fill="#bbb"/>
+
+  <text x="80" y="160" font-size="22" font-weight="700" fill="#222">IT Support Assistant</text>
+  <text x="80" y="180" font-size="12" fill="#888">Group 5 · BUS 118S Capstone</text>
+
+  <!-- USER message (right-aligned) -->
+  <rect x="430" y="220" width="350" height="44" fill="#0a7" rx="12"/>
+  <text x="450" y="247" font-size="13" fill="white">What's the status of INC-1042?</text>
+  <text x="772" y="278" font-size="10" fill="#888" text-anchor="end">10:14 AM · you</text>
+
+  <!-- ASSISTANT response bubble -->
+  <rect x="80" y="310" width="700" height="290" fill="#f4f4f5" stroke="#ddd" rx="12"/>
+
+  <!-- Status strip -->
+  <rect x="80" y="310" width="700" height="36" fill="#e8f5e9" stroke="#a5d6a7" rx="12"/>
+  <circle cx="100" cy="328" r="4" fill="#2e7d32"/>
+  <text x="115" y="332" font-size="11" font-weight="600" fill="#2e7d32">ticket_status</text>
+  <text x="220" y="332" font-size="11" fill="#558b2f">confidence: 95%</text>
+  <text x="340" y="332" font-size="11" fill="#558b2f">2 ms</text>
+  <text x="400" y="332" font-size="11" fill="#558b2f">tool: get_ticket_status ✓</text>
+
+  <!-- Body -->
+  <text x="100" y="380" font-size="14" font-weight="600" fill="#222">Your ticket is waiting on a manager approval.</text>
+  <text x="100" y="408" font-size="13" fill="#444">Assigned to: Manager Approval Queue</text>
+  <text x="100" y="430" font-size="13" fill="#444">Last updated: 2026-05-01</text>
+  <text x="100" y="452" font-size="13" fill="#444">Next step: Ping your manager on Slack if it's urgent.</text>
+
+  <!-- Sources -->
+  <line x1="100" y1="490" x2="760" y2="490" stroke="#ddd"/>
+  <text x="100" y="515" font-size="10" font-weight="600" fill="#888">SOURCES</text>
+  <rect x="100" y="525" width="280" height="22" fill="white" stroke="#ccc" rx="3"/>
+  <text x="110" y="540" font-size="10" fill="#555">docs/kb/ticket-faqs.md#ticket-states</text>
+
+  <text x="700" y="582" font-size="10" fill="#888" text-anchor="end">10:14 AM · assistant</text>
+
+  <!-- Input area -->
+  <rect x="80" y="650" width="700" height="50" fill="white" stroke="#aaa" stroke-width="1.5" rx="25"/>
+  <text x="105" y="681" font-size="13" fill="#aaa">Type your IT question...</text>
+  <rect x="720" y="660" width="50" height="30" fill="#222" rx="15"/>
+  <text x="735" y="680" font-size="12" fill="white" font-weight="600">→</text>
+
+  <!-- Annotation panel -->
+  <line x1="900" y1="100" x2="900" y2="750" stroke="#222" stroke-width="2"/>
+  <text x="920" y="120" font-size="14" font-weight="700" fill="#222">DESIGN DECISIONS</text>
+
+  <text x="920" y="160" font-size="12" font-weight="600" fill="#0a7">① Status strip per response</text>
+  <text x="920" y="180" font-size="11" fill="#555">Every reply shows intent + confidence +</text>
+  <text x="920" y="196" font-size="11" fill="#555">latency + tool used. Users can audit the</text>
+  <text x="920" y="212" font-size="11" fill="#555">system's reasoning at a glance.</text>
+
+  <text x="920" y="250" font-size="12" font-weight="600" fill="#0a7">② Color = state, not decoration</text>
+  <text x="920" y="270" font-size="11" fill="#555">Green strip means auto-resolved cleanly.</text>
+  <text x="920" y="286" font-size="11" fill="#555">Compare to wireframe 3 — escalation</text>
+  <text x="920" y="302" font-size="11" fill="#555">uses amber. Color is information.</text>
+
+  <text x="920" y="340" font-size="12" font-weight="600" fill="#0a7">③ Source citations always visible</text>
+  <text x="920" y="360" font-size="11" fill="#555">Cited markdown chunks shown under every</text>
+  <text x="920" y="376" font-size="11" fill="#555">RAG answer. Users (and graders) can</text>
+  <text x="920" y="392" font-size="11" fill="#555">verify the answer is grounded, not made up.</text>
+
+  <text x="920" y="430" font-size="12" font-weight="600" fill="#0a7">④ Plain-language ticket status</text>
+  <text x="920" y="450" font-size="11" fill="#555">Knowledge Agent translates raw status</text>
+  <text x="920" y="466" font-size="11" fill="#555">("waiting_on_approval") into "waiting on</text>
+  <text x="920" y="482" font-size="11" fill="#555">a manager approval" + a clear next step.</text>
+
+  <text x="920" y="525" font-size="12" font-weight="600" fill="#888">PRINCIPLES</text>
+  <text x="920" y="548" font-size="11" fill="#666">• Transparency over magic</text>
+  <text x="920" y="566" font-size="11" fill="#666">• Auditable AI by default</text>
+  <text x="920" y="584" font-size="11" fill="#666">• Plain language, not jargon</text>
+  <text x="920" y="602" font-size="11" fill="#666">• Always tell user what's next</text>
+</svg>

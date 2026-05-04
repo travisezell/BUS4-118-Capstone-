@@ -1,0 +1,89 @@
+<svg viewBox="0 0 1280 800" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
+  <rect width="1280" height="800" fill="#fafafa"/>
+
+  <text x="40" y="40" font-size="20" font-weight="700" fill="#222">Wireframe 4 · Mobile responsive view</text>
+  <text x="40" y="62" font-size="13" fill="#666">Same components, single-column layout — works on a phone for after-hours IT support</text>
+
+  <!-- Phone frame -->
+  <rect x="80" y="100" width="380" height="660" fill="#222" rx="32"/>
+  <rect x="92" y="112" width="356" height="636" fill="white" rx="22"/>
+  <rect x="180" y="115" width="100" height="18" fill="#222" rx="9"/>
+
+  <!-- App header -->
+  <text x="110" y="170" font-size="16" font-weight="700" fill="#222">IT Support</text>
+
+  <!-- Welcome -->
+  <rect x="110" y="190" width="320" height="80" fill="#f4f4f5" stroke="#ddd" rx="10"/>
+  <text x="125" y="215" font-size="11" fill="#222">Hi — I'm your IT support</text>
+  <text x="125" y="231" font-size="11" fill="#222">assistant. Ask about access,</text>
+  <text x="125" y="247" font-size="11" fill="#222">accounts, or ticket status.</text>
+
+  <!-- Sample prompts: stacked single column -->
+  <rect x="110" y="285" width="320" height="36" fill="white" stroke="#888" rx="18"/>
+  <text x="125" y="307" font-size="11" fill="#333">Access to Figma</text>
+
+  <rect x="110" y="328" width="320" height="36" fill="white" stroke="#888" rx="18"/>
+  <text x="125" y="350" font-size="11" fill="#333">Locked out of my account</text>
+
+  <rect x="110" y="371" width="320" height="36" fill="white" stroke="#888" rx="18"/>
+  <text x="125" y="393" font-size="11" fill="#333">Status of INC-1042?</text>
+
+  <!-- Conversation showing one exchange -->
+  <rect x="180" y="430" width="250" height="32" fill="#0a7" rx="10"/>
+  <text x="195" y="450" font-size="10" fill="white">Status of INC-1042?</text>
+
+  <!-- Assistant response (full-width) -->
+  <rect x="110" y="480" width="320" height="180" fill="#f4f4f5" stroke="#ddd" rx="10"/>
+  <rect x="110" y="480" width="320" height="22" fill="#e8f5e9" stroke="#a5d6a7" rx="10"/>
+  <text x="125" y="496" font-size="9" font-weight="600" fill="#2e7d32">ticket_status · 95% · 2ms</text>
+
+  <text x="125" y="525" font-size="10" font-weight="600" fill="#222">Waiting on manager approval.</text>
+  <text x="125" y="544" font-size="10" fill="#444">Assigned: Manager Approval Q.</text>
+  <text x="125" y="562" font-size="10" fill="#444">Updated: 2026-05-01</text>
+  <text x="125" y="585" font-size="9" fill="#666">Next: Ping your manager on</text>
+  <text x="125" y="599" font-size="9" fill="#666">Slack if it's urgent.</text>
+
+  <line x1="125" y1="615" x2="415" y2="615" stroke="#ddd"/>
+  <text x="125" y="632" font-size="8" fill="#888">SOURCE</text>
+  <text x="170" y="632" font-size="8" fill="#555">ticket-faqs.md#ticket-states</text>
+
+  <!-- Input -->
+  <rect x="110" y="685" width="265" height="36" fill="white" stroke="#aaa" rx="18"/>
+  <text x="125" y="707" font-size="10" fill="#aaa">Type your question...</text>
+  <rect x="385" y="690" width="36" height="26" fill="#222" rx="13"/>
+  <text x="397" y="708" font-size="11" fill="white">→</text>
+
+  <!-- Annotation panel -->
+  <line x1="540" y1="100" x2="540" y2="760" stroke="#222" stroke-width="2"/>
+  <text x="560" y="120" font-size="14" font-weight="700" fill="#222">RESPONSIVE DESIGN DECISIONS</text>
+
+  <text x="560" y="160" font-size="12" font-weight="600" fill="#0a7">① Same components, fewer columns</text>
+  <text x="560" y="180" font-size="11" fill="#555">Sample prompts go from 2 columns to 1.</text>
+  <text x="560" y="196" font-size="11" fill="#555">Message bubbles span full width minus a</text>
+  <text x="560" y="212" font-size="11" fill="#555">small avatar margin.</text>
+
+  <text x="560" y="250" font-size="12" font-weight="600" fill="#0a7">② Status strip survives the shrink</text>
+  <text x="560" y="270" font-size="11" fill="#555">Compressed format: "intent · conf · ms"</text>
+  <text x="560" y="286" font-size="11" fill="#555">on a single line. Trust signals don't get</text>
+  <text x="560" y="302" font-size="11" fill="#555">dropped on mobile — they just shrink.</text>
+
+  <text x="560" y="340" font-size="12" font-weight="600" fill="#0a7">③ Sources still cited, abbreviated</text>
+  <text x="560" y="360" font-size="11" fill="#555">Drop the "docs/kb/" prefix on mobile,</text>
+  <text x="560" y="376" font-size="11" fill="#555">tap to expand. Grounding stays visible —</text>
+  <text x="560" y="392" font-size="11" fill="#555">that's a hard requirement, not a nice-to-have.</text>
+
+  <text x="560" y="430" font-size="12" font-weight="600" fill="#0a7">④ Why this matters for IT</text>
+  <text x="560" y="450" font-size="11" fill="#555">Locked-out users can't open a laptop —</text>
+  <text x="560" y="466" font-size="11" fill="#555">they're trying to recover from their phone.</text>
+  <text x="560" y="482" font-size="11" fill="#555">Mobile isn't optional for an IT assistant.</text>
+
+  <text x="560" y="525" font-size="12" font-weight="600" fill="#0a7">⑤ Implementation</text>
+  <text x="560" y="545" font-size="11" fill="#555">Tailwind responsive utilities (md: prefix).</text>
+  <text x="560" y="561" font-size="11" fill="#555">No separate codebase. One UI, two layouts.</text>
+
+  <text x="560" y="610" font-size="12" font-weight="600" fill="#888">PRINCIPLES</text>
+  <text x="560" y="633" font-size="11" fill="#666">• Mobile-first sizing</text>
+  <text x="560" y="651" font-size="11" fill="#666">• Trust signals don't disappear on mobile</text>
+  <text x="560" y="669" font-size="11" fill="#666">• Tap targets ≥ 44px (Apple HIG)</text>
+  <text x="560" y="687" font-size="11" fill="#666">• Single composition, two breakpoints</text>
+</svg>

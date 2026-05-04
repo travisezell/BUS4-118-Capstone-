@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 type Role = "user" | "assistant";
 
 interface ChatMessage {
+  id?: string;
   role: Role;
   content: string;
   meta?: {
@@ -16,6 +17,33 @@ interface ChatMessage {
     statusTrace?: { kind: string; label: string }[];
   };
 }
+
+// Mirror of the StreamEvent union exported by the orchestrator.
+// Kept narrow on the UI side because we only need the discriminator
+// and a handful of fields.
+type StreamEvent =
+  | { kind: "status"; label: string; stage: string; node: string }
+  | {
+      kind: "intent";
+      intent: string;
+      confidence: number;
+      entities: Record<string, unknown>;
+    }
+  | { kind: "sources"; sources: string[] }
+  | { kind: "tools"; toolResults: unknown[] }
+  | { kind: "answer_chunk"; text: string }
+  | {
+      kind: "done";
+      final: {
+        answer: string;
+        intent: string;
+        confidence: number;
+        retrievedSources: string[];
+        escalated: boolean;
+        latencyMs: number;
+      };
+    }
+  | { kind: "error"; message: string };
 
 const SAMPLE_PROMPTS: { label: string; prompt: string }[] = [
   { label: "Access · Figma", prompt: "I need access to Figma for the design review" },
@@ -149,87 +177,142 @@ export default function Home() {
     setInput("");
     setPending(true);
 
-    // Predict the agent stages from the message and step through them
-    // with realistic per-stage timing. We hold on the last stage if the
-    // request hasn't returned yet so the user sees movement, not a
-    // freeze.
+    // Predict the agent stages from the message as a fallback for the
+    // initial label. Once the stream starts, real server events take
+    // over and replace the prediction.
     const predicted = predictStages(userText);
     setStatusLabel(predicted[0].label);
-    let cancelled = false;
-    let stageIdx = 0;
 
-    const tick = () => {
-      if (cancelled) return;
-      stageIdx = Math.min(stageIdx + 1, predicted.length - 1);
-      setStatusLabel(predicted[stageIdx].label);
-      if (stageIdx < predicted.length - 1) {
-        setTimeout(tick, predicted[stageIdx].ms);
-      }
-    };
-    setTimeout(tick, predicted[0].ms);
+    // Insert a placeholder assistant message we'll update as tokens
+    // stream in. Using a unique ID is more reliable than tracking by
+    // index because React state updates are async.
+    const placeholderId = `pending-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 8)}`;
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: placeholderId,
+        role: "assistant",
+        content: "",
+        meta: { statusTrace: [] },
+      },
+    ]);
 
     try {
       const history = messages
         .filter((m) => m.role !== "assistant" || m.content !== WELCOME)
         .map((m) => ({ role: m.role, content: m.content }));
 
-      const res = await fetch("/api/chat", {
+      const res = await fetch("/api/chat?stream=1", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: userText, history }),
       });
-      const data = await res.json();
-      cancelled = true;
-      setStatusLabel(null);
 
-      if (!res.ok) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: `Sorry — ${data.error ?? "something went wrong."}`,
-          },
-        ]);
-        return;
+      if (!res.ok || !res.body) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.error ?? `HTTP ${res.status}`);
       }
 
-      // Pull the real status trace out of the response. The orchestrator
-      // emits one event per agent stage; we surface those in the
-      // message metadata so users can see what actually ran.
-      const statusTrace = (data.statusEvents ?? []).map(
-        (e: { kind: string; label: string }) => ({
-          kind: e.kind,
-          label: e.label,
-        })
-      );
+      // Server-Sent Events parser. Each event arrives as
+      //   data: <json>\n\n
+      // We accumulate partial lines and dispatch on each complete
+      // event boundary.
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      const collectedTrace: { kind: string; label: string }[] = [];
+      let answerText = "";
+      let finalMeta: ChatMessage["meta"] | null = null;
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: data.response,
-          meta: {
-            intent: data.intent,
-            confidence: data.confidence,
-            sources: data.retrievedSources ?? [],
-            escalated: data.escalated,
-            latencyMs: data.latencyMs,
-            statusTrace,
-          },
-        },
-      ]);
-    } catch (err) {
-      cancelled = true;
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let nlIdx;
+        while ((nlIdx = buffer.indexOf("\n\n")) !== -1) {
+          const rawEvent = buffer.slice(0, nlIdx);
+          buffer = buffer.slice(nlIdx + 2);
+          if (!rawEvent.startsWith("data: ")) continue;
+
+          const json = rawEvent.slice(6);
+          let event: StreamEvent;
+          try {
+            event = JSON.parse(json) as StreamEvent;
+          } catch {
+            continue;
+          }
+
+          if (event.kind === "status") {
+            setStatusLabel(event.label);
+            collectedTrace.push({ kind: event.stage, label: event.label });
+          } else if (event.kind === "answer_chunk") {
+            answerText += event.text;
+            // Update the placeholder message by ID.
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === placeholderId
+                  ? { ...m, content: answerText }
+                  : m
+              )
+            );
+          } else if (event.kind === "intent") {
+            finalMeta = {
+              ...(finalMeta ?? {}),
+              intent: event.intent,
+              confidence: event.confidence,
+            };
+          } else if (event.kind === "sources") {
+            finalMeta = { ...(finalMeta ?? {}), sources: event.sources };
+          } else if (event.kind === "tools") {
+            // tools surface through the final done event
+          } else if (event.kind === "done") {
+            finalMeta = {
+              intent: event.final.intent,
+              confidence: event.final.confidence,
+              sources: event.final.retrievedSources,
+              escalated: event.final.escalated,
+              latencyMs: event.final.latencyMs,
+              statusTrace: collectedTrace,
+            };
+            // The done event carries the authoritative final answer.
+            // Use it to backfill in case any chunks were missed.
+            answerText = event.final.answer;
+          } else if (event.kind === "error") {
+            throw new Error(event.message);
+          }
+        }
+      }
+
+      // Stream finished. Apply the final answer and metadata.
       setStatusLabel(null);
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: `Sorry — I couldn't reach the server. (${
-            err instanceof Error ? err.message : "unknown error"
-          })`,
-        },
-      ]);
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === placeholderId
+            ? {
+                ...m,
+                content: answerText,
+                meta: finalMeta ?? { statusTrace: collectedTrace },
+              }
+            : m
+        )
+      );
+    } catch (err) {
+      setStatusLabel(null);
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === placeholderId
+            ? {
+                ...m,
+                content: `Sorry — I couldn't reach the server. (${
+                  err instanceof Error ? err.message : "unknown error"
+                })`,
+              }
+            : m
+        )
+      );
     } finally {
       setPending(false);
     }

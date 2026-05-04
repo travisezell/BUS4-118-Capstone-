@@ -205,25 +205,27 @@ The full per scenario results table is in [`docs/test-results.md`](test-results.
 
 | Metric | Value |
 |---|---|
-| Tests passing | 18 of 18 (100%) |
+| Tests passing | 22 of 22 (100%) |
 | Routing accuracy | 100% |
-| Auto resolve rate | 67% (12 of 18) |
-| Escalation rate | 33% (6 of 18) |
-| Tool use rate | 50% (9 of 18) |
-| Average latency | 11.4 ms |
-| P95 latency | 45.4 ms |
+| Auto resolve rate | 65% (15 of 23 logged requests) |
+| Escalation rate | 35% (8 of 23) |
+| Tool use rate | 57% (13 of 23) |
+| Average latency | about 14 ms |
+| P95 latency | about 45 ms |
 
 ## Key findings
 
-**Finding 1: The system reliably routes the three core flows.** Routing accuracy is 100% on the test set. Every Access Help, Account Help, and Ticket Status scenario was correctly classified into its intended intent. Confidence scores are appropriately calibrated: 0.90 to 0.95 when entities like a ticket ID or known tool name were extracted, 0.55 to 0.75 when the intent is clear but details are missing, 0.20 to 0.40 for genuinely ambiguous inputs.
+**Finding 1: The system reliably routes the three core flows.** Routing accuracy is 100% on the test set. Every Access Help, Account Help, and Ticket Status scenario was correctly classified into its intended intent. Confidence scores are appropriately calibrated: 0.90 to 0.95 when entities like a ticket ID or known tool name were extracted, 0.55 to 0.85 when the intent is clear but details come from history rather than the current message, 0.20 to 0.40 for genuinely ambiguous inputs.
 
 **Finding 2: The compromise short circuit works in natural language.** The most important Account Help test was whether the system catches a suspected compromise even when the user does not use the word "compromised" or "hacked". Both phrasings ("I think my account was compromised" and "Someone logged into my account from another country and I didn't do it") were correctly routed to escalation with a P1 ticket created. This is the test we cared most about because it is the most consequential failure mode.
 
 **Finding 3: Workflow Agent makes real product decisions.** The duplicate detection on the Figma access scenario worked as intended. The system did not create a second ticket; it surfaced the existing one. This is the kind of behavior that distinguishes an agentic system from a chatbot wrapped around a workflow.
 
-**Finding 4: Escalation rate is appropriately calibrated.** 33% escalation rate sounds high, but the test set deliberately includes scenarios where escalation is the correct outcome (two compromise scenarios, one missing tool name, one invalid ticket ID, one ambiguous request, one ticket status with no ID). On the happy path scenarios alone, the system auto resolves 100% of the time.
+**Finding 4: Escalation rate is appropriately calibrated.** 35% escalation rate sounds high, but the test set deliberately includes scenarios where escalation is the correct outcome (two compromise scenarios, one missing tool name, one invalid ticket ID, one ambiguous request, one ticket status with no ID, one history-less follow-up). On the happy path scenarios alone, the system auto resolves 100% of the time.
 
-**Finding 5: LangGraph conditional edges produce measurable latency wins.** The ticket status path skips the Knowledge node and runs in 5 to 10ms; the access path that goes through Knowledge runs in 25 to 45ms. This is exactly what the conditional routing was designed to do.
+**Finding 5: LangGraph conditional edges produce measurable latency wins.** The ticket status path skips the Knowledge node and runs in about 9 ms; the access path that goes through Knowledge runs in about 35 ms. This is exactly what the conditional routing was designed to do.
+
+**Finding 6: Multi-turn conversation memory works.** When a user follows up with "what's the status of that?" the system reads the prior assistant turn, extracts the most recent ticket ID, and runs the lookup. Tested with three different phrasings (referential, bare, and history-less). All three behave correctly: referential and bare resolve to the right ticket; history-less correctly does not invent one.
 
 ## Known limitations
 
@@ -251,6 +253,6 @@ We are honest about three limitations the test suite surfaced.
 
 # Closing
 
-The system meets the goals set in the project charter. Three core IT flows work end to end with real LangGraph orchestration, real RAG, real MCP tool integration, and structured human handoff when needed. The four agents collaborate visibly through a shared state object, the routing decisions are explicit conditional edges in the graph, and 18 of 18 test scenarios pass.
+The system meets the goals set in the project charter. Three core IT flows work end to end with real LangGraph orchestration, real RAG, real MCP tool integration, and structured human handoff when needed. Multi-turn conversation memory and Server-Sent Events streaming make the chat feel like a modern AI product. The four agents collaborate visibly through a shared state object, the routing decisions are explicit conditional edges in the graph, and 22 of 22 test scenarios pass.
 
 What we built is a prototype, not a product. But it is a prototype of the same architectural pattern the leading enterprise IT support vendors have converged on, built on the standards (LangGraph, MCP, RAG with citations) that those vendors use too.

@@ -90,7 +90,9 @@ Each response includes intent, confidence, latency, and source citations to the 
 - 5 working IT tools: access requests, account tickets, ticket status, ticket updates, ticket search
 - Grounded answers with source citations to `docs/kb/*.md`
 - Escalation Agent with structured handoff to human IT
-- 19 vitest scenario tests, all passing
+- Multi-turn conversation memory (referential follow-ups like "what's the status of that?" resolve to the prior ticket)
+- Server-Sent Events streaming with real per-agent status events and word-by-word answer delivery
+- 22 vitest scenario tests, all passing
 - Per-flow metrics tracked separately for each of the three core flows
 - Health and metrics endpoints (`/api/health`, `/api/metrics`)
 
@@ -109,7 +111,7 @@ Each response includes intent, confidence, latency, and source citations to the 
 git clone https://github.com/travisezell/BUS4-118-Capstone-.git
 cd BUS4-118-Capstone-
 npm install
-npm test           # 19/19 scenarios should pass
+npm test           # 22/22 scenarios should pass
 npm run dev
 ```
 
@@ -197,7 +199,7 @@ docs/
   TESTING.md                        # Test design and scenarios documented
   SCALING.md                        # Vendor research (Moveworks, ServiceNow Now Assist, Glean)
   handoff-flows.md                  # Per-scenario agent handoff narrative
-  test-results.md                   # All 19 test results with metrics
+  test-results.md                   # All 22 test results with metrics
   design-implementation-testing.md  # Unified design + impl + testing document
   sample-conversations.md           # Demo scripts for the live walkthrough
   diagrams/                         # User journey and architecture diagrams (PNG)
@@ -218,7 +220,7 @@ docker-compose.yml         # Chroma service for local development
 ## Testing
 
 ```bash
-npm test            # run all 19 scenarios
+npm test            # run all 22 scenarios
 npm run test:watch  # watch mode
 ```
 
@@ -228,6 +230,7 @@ The test suite covers:
 - **Account help** (5 scenarios): standard lockout, skip-self-service, unclear, suspected compromise (vocabulary), suspected compromise (natural-language phrasing)
 - **Ticket status** (4 scenarios): valid ID, invalid ID, no ID, stale ticket
 - **Edge cases** (6 scenarios): greeting, capability question, ambiguous ticket creation, out-of-scope, natural-language account problem, ticket lookup by subject keyword
+- **Multi-turn memory** (3 scenarios): referential follow-up resolves prior ticket, bare follow-up pulls ticket from history, follow-up without history doesn't invent a ticket
 
 Per-flow metrics (routing accuracy, retrieval hit rate, auto-resolve rate, escalation rate, average latency) are tracked separately for each of the three core flows and exposed at `/api/metrics` under `perFlow`.
 
@@ -241,21 +244,21 @@ Tests run against the mock providers so they pass on a fresh clone with no API k
 
 The system tracks the following metrics, with both aggregate values and per-flow breakdowns. The aggregate values below are from the latest test run.
 
-| Metric | Target | Aggregate (19 tests) |
+| Metric | Target | Aggregate (22 tests) |
 |---|---|---|
 | Routing accuracy | 85% or higher | 100% |
-| Auto-resolve rate | 60% or higher | 70% |
-| Escalation rate | tracked, not minimized | 30% |
-| Retrieval hit rate | 80% or higher | 55% aggregate, 100% on flows that use RAG |
-| Average latency | under 5s | about 7ms (mock), about 500ms (OpenAI) |
+| Auto-resolve rate | 60% or higher | 65% |
+| Escalation rate | tracked, not minimized | 35% |
+| Retrieval hit rate | 80% or higher | 48% aggregate, 100% on flows that use RAG |
+| Average latency | under 5s | about 14ms (mock), about 500ms (OpenAI) |
 
 Per-flow breakdowns from `/api/metrics`:
 
 | Flow | Auto-resolve | Retrieval hit | Tool use | Avg latency |
 |---|---|---|---|---|
-| Access Help | 80% | 100% | 80% | about 7ms |
-| Account Help | 67% | 100% | 50% | about 3ms |
-| Ticket Status | 60% | n/a (skips Knowledge by design) | 80% | about 3ms |
+| Access Help | 80% | 100% | 80% | about 35ms |
+| Account Help | 67% | 100% | 50% | about 8ms |
+| Ticket Status | 50% | n/a (skips Knowledge by design) | 75% | about 9ms |
 
 The aggregate retrieval hit rate is lower than the per-flow rate because edge case intents (greeting, out_of_scope, ambiguous) intentionally bypass the Knowledge node. On flows that actually use RAG, retrieval hit rate is 100%.
 

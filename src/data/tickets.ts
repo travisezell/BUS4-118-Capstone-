@@ -210,3 +210,39 @@ export function listTickets(user_id?: string): Ticket[] {
 export function getTicket(id: string): Ticket | undefined {
   return tickets.get(id.toUpperCase()) ?? tickets.get(id);
 }
+
+/**
+ * Search tickets by user email and/or a summary substring. Used when a
+ * user asks about ticket status without giving a ticket ID
+ * (e.g. "any update on my Figma access?" or "where's my VPN ticket?").
+ *
+ * Returns matching open tickets ordered by most recent update first.
+ * Resolved or closed tickets are excluded so we don't confuse the user
+ * with stale matches.
+ */
+export function searchTickets(args: {
+  email?: string;
+  subjectQuery?: string;
+}): Ticket[] {
+  const { email, subjectQuery } = args;
+  const q = subjectQuery?.toLowerCase().trim();
+
+  const all = [...tickets.values()];
+  const matches = all.filter((t) => {
+    if (t.state === "closed" || t.state === "resolved") return false;
+    if (email && t.user_id.toLowerCase() !== email.toLowerCase()) return false;
+    if (q && q.length > 0) {
+      const hay = (
+        (t.summary ?? "") +
+        " " +
+        (t.app_name ?? "")
+      ).toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  // Most recent first (string comparison works for ISO date format).
+  matches.sort((a, b) => b.last_update.localeCompare(a.last_update));
+  return matches;
+}

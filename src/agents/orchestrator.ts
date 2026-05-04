@@ -307,6 +307,53 @@ function explainTicketStatus(state: GraphStateType): string | undefined {
   ].join("\n");
 }
 
+/**
+ * Format the result of a search_tickets call (when the user asked about
+ * a ticket without giving an ID, but did provide an email or subject
+ * keyword). Returns undefined if no matching tickets were found so the
+ * caller can fall through to the not-found path.
+ */
+function explainTicketSearch(state: GraphStateType): string | undefined {
+  const result = state.toolResults?.find(
+    (r) => r.name === "search_tickets" && r.ok
+  );
+  if (!result?.data) return undefined;
+  const data = result.data as {
+    count: number;
+    tickets: Array<{
+      id: string;
+      summary: string;
+      state: string;
+      owner: string;
+      last_update: string;
+      next_action: string;
+    }>;
+  };
+  if (data.count === 0) return undefined;
+
+  if (data.count === 1) {
+    const t = data.tickets[0];
+    return [
+      `I found one matching open ticket: **${t.id}** — ${t.summary}.`,
+      `Status: \`${t.state}\` · Owner: **${t.owner}** · Last updated: ${t.last_update}`,
+      `Next step: ${t.next_action}`,
+    ].join("\n");
+  }
+
+  // Multiple matches — list them so the user can pick.
+  const lines = [
+    `I found ${data.count} open tickets that match. Which one did you mean?`,
+    ``,
+  ];
+  for (const t of data.tickets.slice(0, 5)) {
+    lines.push(`- **${t.id}** — ${t.summary} (\`${t.state}\`, updated ${t.last_update})`);
+  }
+  if (data.count > 5) {
+    lines.push(`- ...and ${data.count - 5} more`);
+  }
+  return lines.join("\n");
+}
+
 function buildAccessAnswer(state: GraphStateType): string {
   const result = state.toolResults?.[0];
   const doc = state.groundedAnswer ?? "";
@@ -360,6 +407,8 @@ function buildFinalAnswer(state: GraphStateType): string {
     case "ticket_status": {
       const explained = explainTicketStatus(state);
       if (explained) return explained;
+      const searched = explainTicketSearch(state);
+      if (searched) return searched;
       return state.groundedAnswer ?? "I couldn't retrieve that ticket.";
     }
     case "general_qa":

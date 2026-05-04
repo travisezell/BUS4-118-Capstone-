@@ -122,9 +122,35 @@ export async function run(state: AgentState): Promise<WorkflowResult> {
     case "ticket_status": {
       const ticketId = state.entities?.ticketId;
       if (!ticketId) {
+        // No ticket ID — try a lookup by email and/or subject keyword
+        // before giving up. This handles requests like "any update on
+        // my Figma ticket?" or "where's my VPN request?" where the user
+        // has identifiers other than an ID.
+        const email = state.entities?.accountId;
+        const subjectQuery = extractSubjectQuery(state.userMessage);
+        if (email || subjectQuery) {
+          const call: ToolCall = {
+            name: "search_tickets",
+            args: {
+              email: email ?? "",
+              subject_query: subjectQuery ?? "",
+            },
+          };
+          calls.push(call);
+          const result = await mcpServer.call(call.name, call.args);
+          results.push(result);
+
+          const data = result.data as
+            | { count: number; tickets: unknown[] }
+            | undefined;
+          if (result.ok && data && data.count > 0) {
+            // Found something — let the orchestrator format it.
+            break;
+          }
+        }
         return {
-          toolCalls: [],
-          toolResults: [],
+          toolCalls: calls,
+          toolResults: results,
           needsEscalation: true,
           reason: "No ticket ID was provided.",
         };
@@ -156,4 +182,38 @@ export async function run(state: AgentState): Promise<WorkflowResult> {
   }
 
   return { toolCalls: calls, toolResults: results, needsEscalation: false };
+}
+
+/**
+ * Extract a likely subject keyword from messages like
+ *   "any update on my Figma ticket"
+ *   "where's my VPN request"
+ *   "what's happening with my access request"
+ *
+ * Returns the keyword (lowercase) or undefined if nothing salient is found.
+ * This is intentionally simple: a small list of high-value subject words
+ * that appear in our seeded tickets (Figma, VPN, laptop, monitor) plus
+ * generic "access" and "ticket" we already match elsewhere.
+ */
+function extractSubjectQuery(message: string): string | undefined {
+  const m = message.toLowerCase();
+  const subjects = [
+    "figma",
+    "slack",
+    "jira",
+    "github",
+    "notion",
+    "salesforce",
+    "vpn",
+    "laptop",
+    "monitor",
+    "wifi",
+    "wi-fi",
+    "mfa",
+    "password",
+  ];
+  for (const s of subjects) {
+    if (m.includes(s)) return s;
+  }
+  return undefined;
 }

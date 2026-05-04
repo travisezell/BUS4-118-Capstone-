@@ -237,7 +237,7 @@ docker-compose.yml         # Chroma service for local development
 ## Testing
 
 ```bash
-npm test            # run all 18 scenarios
+npm test            # run all 19 scenarios
 npm run test:watch  # watch mode
 ```
 
@@ -246,7 +246,9 @@ The test suite covers:
 - **Access help** (4 scenarios): happy path, missing tool name, unsupported tool, duplicate request
 - **Account help** (5 scenarios): standard lockout, skip-self-service, unclear, suspected compromise (vocabulary), suspected compromise (natural-language phrasing)
 - **Ticket status** (4 scenarios): valid ID, invalid ID, no ID, stale ticket
-- **Edge cases** (5 scenarios): greeting, capability question, ambiguous ticket creation, out-of-scope, natural-language account problem
+- **Edge cases** (6 scenarios): greeting, capability question, ambiguous ticket creation, out-of-scope, natural-language account problem, ticket lookup by subject keyword
+
+Per-flow metrics (routing accuracy, retrieval hit rate, auto-resolve rate, escalation rate, average latency) are tracked separately for each of the three core flows and exposed at `/api/metrics` under `perFlow`.
 
 See [`docs/test-results.md`](docs/test-results.md) for the full per-scenario results table and [`docs/TESTING.md`](docs/TESTING.md) for original scenario-level detail.
 

@@ -35,6 +35,15 @@ export function getRequests(): RequestLog[] {
   return [...log];
 }
 
+export interface PerFlowMetrics {
+  count: number;
+  averageLatencyMs: number;
+  retrievalHitRate: number;
+  autoResolveRate: number;
+  escalationRate: number;
+  toolUseRate: number;
+}
+
 export interface MetricsSummary {
   count: number;
   intents: Record<Intent, number>;
@@ -43,6 +52,49 @@ export interface MetricsSummary {
   autoResolveRate: number;
   escalationRate: number;
   toolUseRate: number;
+  /**
+   * Per-flow breakdowns for the three core flows the use case document
+   * defines. Empty objects for flows that received zero requests in the
+   * window. Aggregate totals stay at the top level for backwards
+   * compatibility.
+   */
+  perFlow: {
+    access_help: PerFlowMetrics;
+    account_help: PerFlowMetrics;
+    ticket_status: PerFlowMetrics;
+  };
+}
+
+function summarizeForIntent(entries: RequestLog[]): PerFlowMetrics {
+  const count = entries.length;
+  if (count === 0) {
+    return {
+      count: 0,
+      averageLatencyMs: 0,
+      retrievalHitRate: 0,
+      autoResolveRate: 0,
+      escalationRate: 0,
+      toolUseRate: 0,
+    };
+  }
+  let latencySum = 0;
+  let retrievalHits = 0;
+  let escalations = 0;
+  let toolUses = 0;
+  for (const r of entries) {
+    latencySum += r.latencyMs;
+    if (r.retrievalHit) retrievalHits += 1;
+    if (r.escalated) escalations += 1;
+    if (r.toolsCalled.length > 0) toolUses += 1;
+  }
+  return {
+    count,
+    averageLatencyMs: latencySum / count,
+    retrievalHitRate: retrievalHits / count,
+    autoResolveRate: 1 - escalations / count,
+    escalationRate: escalations / count,
+    toolUseRate: toolUses / count,
+  };
 }
 
 export function summarize(): MetricsSummary {
@@ -56,6 +108,11 @@ export function summarize(): MetricsSummary {
       autoResolveRate: 0,
       escalationRate: 0,
       toolUseRate: 0,
+      perFlow: {
+        access_help: summarizeForIntent([]),
+        account_help: summarizeForIntent([]),
+        ticket_status: summarizeForIntent([]),
+      },
     };
   }
   const intents = emptyIntentCounts();
@@ -78,6 +135,11 @@ export function summarize(): MetricsSummary {
     autoResolveRate: 1 - escalations / count,
     escalationRate: escalations / count,
     toolUseRate: toolUses / count,
+    perFlow: {
+      access_help: summarizeForIntent(log.filter((r) => r.intent === "access_help")),
+      account_help: summarizeForIntent(log.filter((r) => r.intent === "account_help")),
+      ticket_status: summarizeForIntent(log.filter((r) => r.intent === "ticket_status")),
+    },
   };
 }
 

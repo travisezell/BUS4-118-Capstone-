@@ -224,4 +224,17 @@ describe("Edge cases (PRD §14.4)", () => {
     expect(res.intent).toBe("account_help");
     expect(res.escalated).toBe(false);
   });
+
+  it("ticket status by subject keyword (no ID, but says 'Figma'): finds open ticket via search_tickets", async () => {
+    const res = await handleMessage("any update on my Figma ticket?");
+    expect(res.intent).toBe("ticket_status");
+    // Workflow should attempt search_tickets and find INC-1042 (Figma access).
+    const searchResult = res.toolResults.find((r) => r.name === "search_tickets");
+    expect(searchResult).toBeDefined();
+    expect(searchResult?.ok).toBe(true);
+    // Either the ticket was found (no escalation) or we fall back gracefully.
+    // The seeded INC-1042 has app_name Figma and is open, so we expect a match.
+    expect(res.escalated).toBe(false);
+    expect(res.answer).toContain("INC-1042");
+  });
 });

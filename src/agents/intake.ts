@@ -116,7 +116,11 @@ const TICKET_KEYWORDS = [
   "request status",
   "what's the status",
   "where is my",
+  "where's my",
   "any update on",
+  "did my request",
+  "did my ticket",
+  "go through",
 ];
 
 /**

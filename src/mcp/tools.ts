@@ -1,15 +1,22 @@
 /**
- * MCP-style tool catalog.
+ * Tool catalog.
  *
  * PRD §9.1 / §10.2: tools are exposed as a typed, standardized
  * interface. The Workflow Agent calls them through `mcpServer` (see
- * `./server.ts`), never directly. This separation means we can swap in
- * a real MCP transport later without touching agent code.
+ * `./server.ts`), never directly.
+ *
+ * The same tool definitions are consumed two ways:
+ *
+ *   1. The in-process `MCPServer` (this repo's default, used by tests)
+ *      validates `inputSchema` and calls `handler` directly.
+ *
+ *   2. The real Model Context Protocol server (`scripts/mcp-server.ts`)
+ *      exposes them over stdio using JSON Schema and `@modelcontextprotocol/sdk`.
+ *      The schema is generated from `inputSchema` so we have one source of truth.
  *
  * Each tool declares:
  *   - name, description (for tool discovery),
- *   - input schema (lightweight runtime validation),
- *   - output schema (for downstream typing),
+ *   - inputSchema (typed, runtime-validated),
  *   - handler (the actual implementation).
  */
 
@@ -17,30 +24,65 @@ import {
   createAccessRequest,
   createAccountTicket,
   getTicketStatus,
+  searchTickets,
   updateTicketWithNote,
 } from "../data/tickets";
 import type { ToolResult } from "../agents/types";
 
-/** Minimal schema validator (we don't take a Zod dependency for the prototype). */
-type Schema = Record<string, "string" | "number" | "boolean">;
+/**
+ * Minimal field type. Extend with more types as needed.
+ * The shape stays small on purpose — it converts cleanly to JSON Schema.
+ */
+export interface FieldDef {
+  type: "string" | "number" | "boolean";
+  description?: string;
+}
 
-function validate(input: unknown, schema: Schema): { ok: true } | { ok: false; error: string } {
+export type Schema = Record<string, FieldDef>;
+
+function validate(
+  input: unknown,
+  schema: Schema
+): { ok: true } | { ok: false; error: string } {
   if (!input || typeof input !== "object") {
     return { ok: false, error: "Input must be an object." };
   }
   const obj = input as Record<string, unknown>;
-  for (const [key, expected] of Object.entries(schema)) {
+  for (const [key, def] of Object.entries(schema)) {
     if (!(key in obj)) {
       return { ok: false, error: `Missing field: ${key}` };
     }
-    if (typeof obj[key] !== expected) {
+    if (typeof obj[key] !== def.type) {
       return {
         ok: false,
-        error: `Field ${key} must be ${expected}, got ${typeof obj[key]}.`,
+        error: `Field ${key} must be ${def.type}, got ${typeof obj[key]}.`,
       };
     }
   }
   return { ok: true };
+}
+
+/**
+ * Convert our internal schema to JSON Schema, which is what the
+ * MCP SDK expects for `inputSchema` in tool registration.
+ */
+export function toJsonSchema(schema: Schema): {
+  type: "object";
+  properties: Record<string, { type: string; description?: string }>;
+  required: string[];
+  additionalProperties: false;
+} {
+  const properties: Record<string, { type: string; description?: string }> = {};
+  for (const [key, def] of Object.entries(schema)) {
+    properties[key] = { type: def.type };
+    if (def.description) properties[key].description = def.description;
+  }
+  return {
+    type: "object",
+    properties,
+    required: Object.keys(schema),
+    additionalProperties: false,
+  };
 }
 
 export interface Tool {
@@ -56,10 +98,17 @@ export const tools: Tool[] = [
     name: "create_access_request",
     description:
       "Submit a new access request for a tool/app on behalf of a user.",
-    inputSchema: { app_name: "string", user_id: "string" },
+    inputSchema: {
+      app_name: { type: "string", description: "Name of the tool or app, e.g. 'Figma'." },
+      user_id: { type: "string", description: "Requesting user identifier (e.g. email)." },
+    },
     handler: async (args) => {
-      const v = validate(args, { app_name: "string", user_id: "string" });
-      if (!v.ok) return { name: "create_access_request", ok: false, error: v.error };
+      const v = validate(args, {
+        app_name: { type: "string" },
+        user_id: { type: "string" },
+      });
+      if (!v.ok)
+        return { name: "create_access_request", ok: false, error: v.error };
       const result = createAccessRequest(
         args.app_name as string,
         args.user_id as string
@@ -71,10 +120,17 @@ export const tools: Tool[] = [
     name: "create_account_ticket",
     description:
       "Open an account-support ticket (lockout, password, MFA, suspected compromise).",
-    inputSchema: { user_id: "string", summary: "string" },
+    inputSchema: {
+      user_id: { type: "string", description: "Affected user identifier." },
+      summary: { type: "string", description: "Brief description of the issue." },
+    },
     handler: async (args) => {
-      const v = validate(args, { user_id: "string", summary: "string" });
-      if (!v.ok) return { name: "create_account_ticket", ok: false, error: v.error };
+      const v = validate(args, {
+        user_id: { type: "string" },
+        summary: { type: "string" },
+      });
+      if (!v.ok)
+        return { name: "create_account_ticket", ok: false, error: v.error };
       const result = createAccountTicket(
         args.user_id as string,
         args.summary as string
@@ -85,10 +141,13 @@ export const tools: Tool[] = [
   {
     name: "get_ticket_status",
     description: "Look up the current state of an existing ticket.",
-    inputSchema: { ticket_id: "string" },
+    inputSchema: {
+      ticket_id: { type: "string", description: "Ticket identifier (INC-... or REQ-...)." },
+    },
     handler: async (args) => {
-      const v = validate(args, { ticket_id: "string" });
-      if (!v.ok) return { name: "get_ticket_status", ok: false, error: v.error };
+      const v = validate(args, { ticket_id: { type: "string" } });
+      if (!v.ok)
+        return { name: "get_ticket_status", ok: false, error: v.error };
       const result = getTicketStatus(args.ticket_id as string);
       if (!result) {
         return {
@@ -103,10 +162,17 @@ export const tools: Tool[] = [
   {
     name: "update_ticket_with_note",
     description: "Append a note to an existing ticket.",
-    inputSchema: { ticket_id: "string", note: "string" },
+    inputSchema: {
+      ticket_id: { type: "string", description: "Ticket identifier." },
+      note: { type: "string", description: "Free-form note to append." },
+    },
     handler: async (args) => {
-      const v = validate(args, { ticket_id: "string", note: "string" });
-      if (!v.ok) return { name: "update_ticket_with_note", ok: false, error: v.error };
+      const v = validate(args, {
+        ticket_id: { type: "string" },
+        note: { type: "string" },
+      });
+      if (!v.ok)
+        return { name: "update_ticket_with_note", ok: false, error: v.error };
       const ok = updateTicketWithNote(
         args.ticket_id as string,
         args.note as string
@@ -122,6 +188,50 @@ export const tools: Tool[] = [
         name: "update_ticket_with_note",
         ok: true,
         data: { ok: true, ticket_id: args.ticket_id },
+      };
+    },
+  },
+  {
+    name: "search_tickets",
+    description:
+      "Find a user's open tickets by email and/or subject keyword when no ticket ID is available.",
+    inputSchema: {
+      email: {
+        type: "string",
+        description:
+          "User email to filter by. Pass an empty string to ignore.",
+      },
+      subject_query: {
+        type: "string",
+        description:
+          "Substring matched against the ticket summary and app name (e.g. 'Figma', 'VPN'). Pass an empty string to match anything.",
+      },
+    },
+    handler: async (args) => {
+      const v = validate(args, {
+        email: { type: "string" },
+        subject_query: { type: "string" },
+      });
+      if (!v.ok)
+        return { name: "search_tickets", ok: false, error: v.error };
+      const results = searchTickets({
+        email: (args.email as string) || undefined,
+        subjectQuery: (args.subject_query as string) || undefined,
+      });
+      return {
+        name: "search_tickets",
+        ok: true,
+        data: {
+          count: results.length,
+          tickets: results.map((t) => ({
+            id: t.id,
+            summary: t.summary,
+            state: t.state,
+            owner: t.owner,
+            last_update: t.last_update,
+            next_action: t.next_action,
+          })),
+        },
       };
     },
   },

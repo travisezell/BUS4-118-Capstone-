@@ -11,8 +11,7 @@
     "test:watch": "vitest",
     "ingest": "tsx --env-file=.env.local scripts/ingest.ts",
     "ingest:no-env": "tsx scripts/ingest.ts",
-    "mcp:server": "tsx scripts/mcp-server.ts",
-    "mcp:demo": "tsx --env-file=.env.local scripts/mcp-demo.ts"
+    "mcp:server": "tsx scripts/mcp-server.ts"
   },
   "dependencies": {
     "@langchain/core": "^0.3.30",

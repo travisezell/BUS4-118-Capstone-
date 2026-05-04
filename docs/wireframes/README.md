@@ -1,7 +1,6 @@
 # UX Wireframes
 
-> Rubric #6 · UX Design & User Experience — these wireframes document
-> the design decisions behind the working chat UI in `app/page.tsx`.
+These wireframes document the design decisions behind the working chat UI in `app/page.tsx`.
 
 The four wireframes below tell a coherent story: how a user discovers
 the assistant, what a successful interaction looks like, what happens
@@ -60,22 +59,11 @@ shrink rather than disappear.
 
 ---
 
-## Mapping to the rubric
+## What these wireframes cover
 
-Rubric #6 (UX Design & User Experience, 5 pts) asks for:
-
-> "Wireframes/mockups demonstrate clear, intuitive user interaction
-> and thoughtful design decisions."
-
-How this directory addresses each part:
-
-- **Wireframes** — 4 SVGs covering the major user states.
-- **Clear, intuitive user interaction** — wireframes 1 and 2 show how a
-  first-time user goes from landing to a successful resolution in two
-  taps (sample prompt → grounded answer).
-- **Thoughtful design decisions** — every wireframe has a labeled
-  annotation panel explicitly tying choices to principles. No
-  decoration is unjustified.
+- **Wireframes.** 4 SVGs covering the major user states.
+- **Clear, intuitive user interaction.** Wireframes 1 and 2 show how a first-time user goes from landing to a successful resolution in two taps (sample prompt to grounded answer).
+- **Thoughtful design decisions.** Every wireframe has a labeled annotation panel explicitly tying choices to the design principles above. No decoration is unjustified.
 
 ---
 

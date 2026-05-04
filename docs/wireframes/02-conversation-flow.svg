@@ -66,8 +66,8 @@
 
   <text x="920" y="340" font-size="12" font-weight="600" fill="#0a7">③ Source citations always visible</text>
   <text x="920" y="360" font-size="11" fill="#555">Cited markdown chunks shown under every</text>
-  <text x="920" y="376" font-size="11" fill="#555">RAG answer. Users (and graders) can</text>
-  <text x="920" y="392" font-size="11" fill="#555">verify the answer is grounded, not made up.</text>
+  <text x="920" y="376" font-size="11" fill="#555">RAG answer so users can verify the</text>
+  <text x="920" y="392" font-size="11" fill="#555">answer is grounded, not made up.</text>
 
   <text x="920" y="430" font-size="12" font-weight="600" fill="#0a7">④ Plain-language ticket status</text>
   <text x="920" y="450" font-size="11" fill="#555">Knowledge Agent translates raw status</text>

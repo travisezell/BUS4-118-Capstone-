@@ -2,11 +2,11 @@
  * Mock ticket store.
  *
  * PRD §9.1: tools operate on tickets. We keep a small in-memory store so
- * the four IT tools have something to read and write.
+ * the IT tools have something to read and write.
  *
- * Seeded with a handful of tickets so the 12 test scenarios have
- * realistic data to query — including a stale one and a closed one
- * (PRD §14.3 scenarios 3 and 4).
+ * Seeded with a handful of tickets so the test scenarios have realistic
+ * data to query, including a stale one and a closed one (PRD §14.3
+ * scenarios 3 and 4).
  */
 
 export type TicketState =
@@ -39,7 +39,7 @@ function isoDaysAgo(n: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-// Seed data — referenced by the 12 test scenarios.
+// Seed data referenced by the test scenarios.
 const seed: Ticket[] = [
   {
     id: "INC-1042",

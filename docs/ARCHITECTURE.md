@@ -2,6 +2,8 @@
 
 This document describes the architecture of our multi-agent IT support assistant: the agents, data flow, and integration points. It maps directly to PRD §7 (Agent Architecture), §8 (RAG), §9 (Workflow Automation), and §10 (Technical Stack & MCP).
 
+The orchestration layer is built on `@langchain/langgraph`. Each agent is a node in a `StateGraph` that shares an `AgentState` object, with conditional edges driving routing decisions based on intent and confidence.
+
 ---
 
 ## High-Level Flow
@@ -35,7 +37,10 @@ type Intent =
   | "access_help"
   | "account_help"
   | "ticket_status"
-  | "general_qa";
+  | "general_qa"
+  | "greeting"
+  | "out_of_scope"
+  | "unknown";
 
 interface IntakeResult {
   intent: Intent;
@@ -81,7 +86,8 @@ interface IntakeResult {
   - `create_account_ticket(user_id, summary)`
   - `get_ticket_status(ticket_id)`
   - `update_ticket_with_note(ticket_id, note)`
-- Call the tool through the MCP-style server.
+  - `search_tickets({email, subject_query})` — used when the user asks about a ticket without giving an ID
+- Call the tool through the MCP server.
 - Wrap tool calls in try/catch; on failure, hand off to the Escalation Agent.
 
 ### Escalation Agent

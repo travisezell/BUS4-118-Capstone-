@@ -145,14 +145,14 @@ The conditional routing is the part that makes this a state machine and not a ha
 
 ## What is real and what is mocked
 
-We are explicit about this because graders should not have to guess.
+We document this directly so anyone reading the code knows where the real integrations are versus where we used a mock for the prototype.
 
 | Component | Status |
 |---|---|
 | LangGraph StateGraph | Real. Uses @langchain/langgraph version 0.2.40 from npm. Real conditional edges, real state reducers, real graph compilation. |
 | OpenAI integration | Real. Uses the official openai npm package. Real API calls for embeddings and chat completions. |
 | Chroma | Real. Docker compose runs the official Chroma image. Real HTTP queries with cosine similarity. |
-| MCP server | Real. Uses @modelcontextprotocol/sdk version 1.29.0. Verified by connecting MCP Inspector externally and successfully calling the four tools. |
+| MCP server | Real. Uses @modelcontextprotocol/sdk version 1.29.0. Verified by connecting MCP Inspector externally and successfully calling the five tools. |
 | Tool calls | Real. The Workflow Agent calls tools through the MCP server using the standard protocol. |
 | Ticket store | Mock. In memory map of seeded tickets. State resets on server restart. The data layer is isolated so swapping for a real ITSM is a single file change. |
 | Tier 2 human IT | Mock. The Escalation Agent builds a real handoff package and the system creates a real ticket; in production this would route to a human queue. |

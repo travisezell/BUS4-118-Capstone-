@@ -10,7 +10,7 @@
  *
  * The aggregate metrics (routing accuracy, retrieval hit rate,
  * auto-resolve rate, average latency) are emitted at the end of the
- * suite for the rubric submission.
+ * suite for inspection.
  */
 
 import { describe, it, expect, afterAll, beforeAll } from "vitest";
@@ -23,7 +23,7 @@ beforeAll(() => {
 
 afterAll(() => {
   const s = summarize();
-  // Print the rubric-aligned summary so a CI run captures it.
+  // Print the aggregate summary so a CI run captures it.
   // eslint-disable-next-line no-console
   console.log("\n=== Aggregate Metrics (PRD §13) ===");
   // eslint-disable-next-line no-console

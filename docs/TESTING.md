@@ -28,9 +28,9 @@ We want to demonstrate that our multi-agent IT support assistant:
 
 ---
 
-## 12 Test Scenarios
+## 19 Test Scenarios
 
-Four scenarios per flow.
+We have 4 scenarios per core flow plus a category of 6 edge case scenarios that surfaced during development.
 
 ### Access Help (4 scenarios)
 
@@ -64,6 +64,23 @@ Four scenarios per flow.
    - Expect: Assistant lists candidates and asks which one to use.
 4. **Stale or blocked ticket.** Ticket has not moved in days.
    - Expect: Explanation that the ticket is stalled and an offer to add a follow-up note.
+
+### Edge cases (6 scenarios)
+
+These scenarios surfaced during development as cases the system needs to handle distinctly from the three core flows.
+
+1. **Greeting.** User sends a message like "hi".
+   - Expect: Friendly capability message that lists what the assistant can help with. No escalation.
+2. **Capability question.** User asks "what can you do?".
+   - Expect: Same capability message as the greeting case. No escalation.
+3. **Ambiguous ticket creation.** User says "I need a new ticket" with no other context.
+   - Expect: Friendly clarification handoff that asks the user which category fits, rather than a generic "low confidence" message.
+4. **Out of scope.** User asks something IT does not handle (e.g., office hours).
+   - Expect: Polite redirect that names the right team. No escalation to IT.
+5. **Natural-language account problem.** User says "my account is broken" without specific keywords.
+   - Expect: Classified as `account_help` with the standard recovery flow.
+6. **Ticket lookup by subject keyword.** User says "any update on my Figma ticket?" with no ticket ID.
+   - Expect: Workflow Agent calls `search_tickets` with the keyword "Figma" and returns the matching open ticket without escalating.
 
 ---
 
@@ -100,7 +117,7 @@ End-to-end scenario tests live in `tests/scenarios.test.ts` and cover one happy 
 
 ## Test Output Format
 
-Each scenario produces a structured result for the rubric submission:
+Each scenario produces a structured result for the test report:
 
 ```json
 {

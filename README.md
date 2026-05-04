@@ -103,7 +103,8 @@ Each response includes intent, confidence, latency, and source citations to the 
 ### Prerequisites
 
 - Node.js 20+
-- (For real RAG) Docker Desktop running and an OpenAI API key
+- (For real RAG via OpenAI) Docker Desktop running and an OpenAI API key
+- (For real RAG via Ollama) Docker Desktop running and Ollama installed locally
 
 ### Path A. Mock mode (no API key, no Chroma)
 
@@ -151,6 +152,43 @@ Verify the stack is wired up at `http://localhost:3000/api/health`:
 ```
 
 > **Cost check:** ingestion is roughly $0.0001. A 50-prompt demo costs about $0.01. $5 of OpenAI credits is more than enough.
+
+### Path C. Fully local with Ollama (no API key, no money)
+
+For developers who want to run real RAG without paying for an API. Slower and slightly lower quality than Path B but completely free and runs offline.
+
+```bash
+# 1. Install Ollama from https://ollama.com/download
+
+# 2. Pull the models (one-time, about 5 GB total)
+ollama pull llama3.1
+ollama pull nomic-embed-text
+
+# 3. Install dependencies and start Chroma
+npm install
+docker compose up -d
+
+# 4. Configure environment
+cp .env.example .env.local
+# then edit .env.local and set:
+#   LLM_PROVIDER=ollama
+#   VECTOR_STORE=chroma
+#   CHROMA_URL=http://localhost:8000
+
+# 5. Load IT docs into Chroma using local embeddings
+npm run ingest
+
+# 6. Run the dev server
+npm run dev
+```
+
+`/api/health` will report `"provider": "ollama"`. Tool calls and the full multi-agent flow work the same as Path B; only the LLM and embedding providers change.
+
+A few things to expect on Path C:
+
+- **Latency.** Ollama on a typical laptop runs at 1 to 5 seconds per chat completion. The demo path (B) is around 500 ms. Plan accordingly.
+- **Quality.** `llama3.1` is a strong open model but won't match `gpt-4o-mini` on every grounded answer. For most demo prompts it's fine.
+- **Provider-specific Chroma collections.** The vector store auto-suffixes collection names with the provider name (`it-support-kb-openai` vs `it-support-kb-ollama`), so you can switch providers without dimension mismatches. Just re-run `npm run ingest` after switching.
 
 ---
 
@@ -289,7 +327,7 @@ A few decisions worth knowing about. These are honest engineering trade-offs, no
 
 - **In-memory ticket store vs real ITSM.** Tickets live in a `Map<>` on the server. Restarts wipe state. For the prototype this is fine. Swapping for a real ITSM (Jira, ServiceNow) is a single file change in `src/data/tickets.ts` because everything goes through a clear interface.
 
-- **OpenAI is the implemented LLM provider.** The `LLMProvider` interface in `src/lib/llm.ts` declares Gemini and Ollama as future providers but they currently fall back to the mock. We focused our integration time on a fully working OpenAI path rather than three half-working ones.
+- **OpenAI and Ollama are the implemented LLM providers.** The `LLMProvider` interface in `src/lib/llm.ts` ships with three real implementations: a deterministic mock for tests, OpenAI for the demo path, and Ollama for fully local development without API costs. Gemini is declared but falls back to the mock in this iteration. The agent code never imports a vendor SDK directly; it only depends on the `LLMProvider` interface.
 
 - **Blended cosine and keyword retrieval.** The in-memory vector store blends 60% cosine similarity with 40% keyword overlap so retrieval ranks reasonably even when embeddings are weak (mock mode). Real RAG on OpenAI embeddings doesn't need the keyword fallback. We kept it because it cheaply defends against query and document vocabulary mismatch.
 

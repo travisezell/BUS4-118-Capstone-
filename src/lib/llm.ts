@@ -1,22 +1,29 @@
 /**
  * Pluggable LLM provider.
  *
- * PRD §10.1: `generateResponse(prompt, context)` is the single contract;
- * OpenAI / Gemini / Ollama implementations are selected via the
+ * PRD section 10.1: `generateResponse(prompt, context)` is the single
+ * contract; OpenAI / Ollama implementations are selected via the
  * `LLM_PROVIDER` env var at boot.
  *
- * Two providers ship out of the box:
+ * Three providers ship out of the box:
  *
- *   - `MockProvider` — deterministic, hash-based. No API key needed.
+ *   - `MockProvider`. Deterministic, hash based. No API key needed.
  *     Used by the test suite and when `LLM_PROVIDER=mock` (the default).
  *
- *   - `OpenAIProvider` — real OpenAI calls.
+ *   - `OpenAIProvider`. Real OpenAI calls.
  *     - Embeddings: `text-embedding-3-small` (1536 dims, ~$0.02/1M tokens)
  *     - Chat:       `gpt-4o-mini` (cheap, fast, more than capable here)
  *     Activated by `LLM_PROVIDER=openai` + `OPENAI_API_KEY=...`.
  *
+ *   - `OllamaProvider`. Real local LLM via Ollama's REST API.
+ *     - Embeddings: `nomic-embed-text` (768 dims, free, local)
+ *     - Chat:       `llama3.1` (free, local, ~1-5s/query on a laptop)
+ *     Activated by `LLM_PROVIDER=ollama`. Requires Ollama running locally.
+ *     See README "Path C — fully local development" for setup.
+ *
  * Agent code only depends on `LLMProvider`, never on a concrete SDK.
- * That's how we keep the prototype testable without API keys.
+ * That's how we keep the prototype testable without API keys and how
+ * we let groupmates run the system locally without paying for OpenAI.
  */
 
 export interface LLMProvider {
@@ -149,16 +156,156 @@ export class OpenAIProvider implements LLMProvider {
   }
 }
 
+/**
+ * Real Ollama provider. Talks to a local Ollama daemon via its standard
+ * REST API on port 11434. No SDK dependency required, just `fetch`.
+ *
+ * Default models:
+ *   - chat: `llama3.1` (about 4.7 GB download, runs fine on most laptops)
+ *   - embeddings: `nomic-embed-text` (about 270 MB, 768 dim vectors)
+ *
+ * Both can be overridden via env vars:
+ *   - `OLLAMA_CHAT_MODEL`
+ *   - `OLLAMA_EMBEDDING_MODEL`
+ *   - `OLLAMA_HOST` (defaults to `http://localhost:11434`)
+ *
+ * Setup for groupmates without an OpenAI key:
+ *   1. Install Ollama from https://ollama.com/download
+ *   2. Pull the models:
+ *        ollama pull llama3.1
+ *        ollama pull nomic-embed-text
+ *   3. Set `LLM_PROVIDER=ollama` in `.env.local`
+ *   4. Run `npm run ingest` and `npm run dev`
+ *
+ * Note: Ollama's vector dimension (768) differs from OpenAI's (1536),
+ * so the Chroma collection is provider specific. Switching providers
+ * after ingest requires re ingesting. The vector store uses the
+ * provider's `embeddingDimensions` to size the collection correctly.
+ */
+export class OllamaProvider implements LLMProvider {
+  readonly name = "ollama";
+  readonly embeddingDimensions = 768; // nomic-embed-text default
+  readonly chatModel: string;
+  readonly embeddingModel: string;
+  readonly host: string;
+
+  constructor(opts?: {
+    chatModel?: string;
+    embeddingModel?: string;
+    host?: string;
+  }) {
+    this.chatModel =
+      opts?.chatModel || process.env.OLLAMA_CHAT_MODEL || "llama3.1";
+    this.embeddingModel =
+      opts?.embeddingModel ||
+      process.env.OLLAMA_EMBEDDING_MODEL ||
+      "nomic-embed-text";
+    this.host =
+      opts?.host || process.env.OLLAMA_HOST || "http://localhost:11434";
+  }
+
+  async generateResponse(prompt: string, context?: string): Promise<string> {
+    const messages: { role: "system" | "user"; content: string }[] = [
+      {
+        role: "system",
+        content:
+          "You are an internal IT support assistant. Answer using ONLY the provided context. " +
+          "Be concise. If the context does not contain the answer, say so plainly. " +
+          "Do not invent policies, ticket IDs, or tool names.",
+      },
+    ];
+    if (context && context.trim().length > 0) {
+      messages.push({
+        role: "user",
+        content: `CONTEXT:\n${context}\n\nQUESTION:\n${prompt}`,
+      });
+    } else {
+      messages.push({ role: "user", content: prompt });
+    }
+
+    let res: Response;
+    try {
+      res = await fetch(`${this.host}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: this.chatModel,
+          messages,
+          stream: false,
+          options: {
+            temperature: 0.2,
+            num_predict: 400,
+          },
+        }),
+      });
+    } catch (err) {
+      throw new Error(
+        `[ollama] Could not reach ${this.host}. Is Ollama running? ` +
+          `Install from https://ollama.com/download and run 'ollama serve'. ` +
+          `Original error: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new Error(
+        `[ollama] Chat request failed (${res.status}): ${body.slice(0, 200)}`
+      );
+    }
+
+    const data = (await res.json()) as {
+      message?: { content?: string };
+    };
+    return data.message?.content?.trim() || "";
+  }
+
+  async embed(text: string): Promise<number[]> {
+    let res: Response;
+    try {
+      res = await fetch(`${this.host}/api/embeddings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: this.embeddingModel,
+          prompt: text,
+        }),
+      });
+    } catch (err) {
+      throw new Error(
+        `[ollama] Could not reach ${this.host}. Is Ollama running? ` +
+          `Original error: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new Error(
+        `[ollama] Embedding request failed (${res.status}): ${body.slice(0, 200)}`
+      );
+    }
+
+    const data = (await res.json()) as { embedding: number[] };
+    if (!Array.isArray(data.embedding)) {
+      throw new Error(
+        `[ollama] Embedding response missing 'embedding' array. ` +
+          `Did you 'ollama pull ${this.embeddingModel}'?`
+      );
+    }
+    return data.embedding;
+  }
+}
+
 function selectProvider(): LLMProvider {
   const name = (process.env.LLM_PROVIDER || "mock").toLowerCase();
   switch (name) {
     case "openai":
       return new OpenAIProvider();
-    case "gemini":
     case "ollama":
-      // Not implemented in this iteration — fall back so the app still runs.
+      return new OllamaProvider();
+    case "gemini":
+      // Not implemented in this iteration. Fall back so the app still runs.
       console.warn(
-        `[llm] LLM_PROVIDER=${name} is declared but not implemented; using mock.`
+        `[llm] LLM_PROVIDER=gemini is declared but not implemented; using mock.`
       );
       return new MockProvider();
     case "mock":

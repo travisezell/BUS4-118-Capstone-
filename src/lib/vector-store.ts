@@ -141,8 +141,14 @@ export class ChromaVectorStore implements VectorStore {
 
   constructor(opts?: { url?: string; collection?: string }) {
     this.url = opts?.url || process.env.CHROMA_URL || "http://localhost:8000";
-    this.collectionName =
+    const baseName =
       opts?.collection || process.env.CHROMA_COLLECTION || "it-support-kb";
+    // Suffix the collection name with the provider so each LLM provider
+    // gets its own collection. OpenAI embeddings are 1536 dim and Ollama
+    // embeddings are 768 dim; mixing them in one collection throws at
+    // query time. With provider-specific names you can switch
+    // `LLM_PROVIDER` and re-run `npm run ingest` without conflicts.
+    this.collectionName = `${baseName}-${llm.name}`;
   }
 
   private async getCollection() {

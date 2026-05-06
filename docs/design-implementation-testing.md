@@ -189,7 +189,7 @@ We compared three industry vendors to inform our scope and design choices. Full 
 
 ## Test methodology
 
-We wrote 18 end to end test scenarios covering all three core flows plus edge cases. Each test sends a real prompt through the orchestrator and asserts on:
+We wrote 22 end-to-end test scenarios covering all three core flows plus edge cases and multi-turn memory. Each test sends a real prompt through the orchestrator and asserts on:
 
 - Intent classification (which agent should handle it)
 - Confidence score (within an expected band)

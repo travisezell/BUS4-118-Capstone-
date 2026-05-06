@@ -27,6 +27,14 @@ import {
   searchTickets,
   updateTicketWithNote,
 } from "../data/tickets";
+import {
+  isJiraConfigured,
+  jiraGetTicketStatus,
+  jiraCreateAccessRequest,
+  jiraCreateAccountTicket,
+  jiraSearchTickets,
+  jiraUpdateTicketWithNote,
+} from "../data/jira-adapter";
 import type { ToolResult } from "../agents/types";
 
 /**
@@ -109,10 +117,12 @@ export const tools: Tool[] = [
       });
       if (!v.ok)
         return { name: "create_access_request", ok: false, error: v.error };
-      const result = createAccessRequest(
-        args.app_name as string,
-        args.user_id as string
-      );
+      const result = isJiraConfigured()
+        ? await jiraCreateAccessRequest(
+            args.app_name as string,
+            args.user_id as string
+          )
+        : createAccessRequest(args.app_name as string, args.user_id as string);
       return { name: "create_access_request", ok: true, data: result };
     },
   },
@@ -131,10 +141,15 @@ export const tools: Tool[] = [
       });
       if (!v.ok)
         return { name: "create_account_ticket", ok: false, error: v.error };
-      const result = createAccountTicket(
-        args.user_id as string,
-        args.summary as string
-      );
+      const result = isJiraConfigured()
+        ? await jiraCreateAccountTicket(
+            args.user_id as string,
+            args.summary as string
+          )
+        : createAccountTicket(
+            args.user_id as string,
+            args.summary as string
+          );
       return { name: "create_account_ticket", ok: true, data: result };
     },
   },
@@ -148,7 +163,9 @@ export const tools: Tool[] = [
       const v = validate(args, { ticket_id: { type: "string" } });
       if (!v.ok)
         return { name: "get_ticket_status", ok: false, error: v.error };
-      const result = getTicketStatus(args.ticket_id as string);
+      const result = isJiraConfigured()
+        ? await jiraGetTicketStatus(args.ticket_id as string)
+        : getTicketStatus(args.ticket_id as string);
       if (!result) {
         return {
           name: "get_ticket_status",
@@ -173,10 +190,15 @@ export const tools: Tool[] = [
       });
       if (!v.ok)
         return { name: "update_ticket_with_note", ok: false, error: v.error };
-      const ok = updateTicketWithNote(
-        args.ticket_id as string,
-        args.note as string
-      );
+      const ok = isJiraConfigured()
+        ? await jiraUpdateTicketWithNote(
+            args.ticket_id as string,
+            args.note as string
+          )
+        : updateTicketWithNote(
+            args.ticket_id as string,
+            args.note as string
+          );
       if (!ok) {
         return {
           name: "update_ticket_with_note",
@@ -214,10 +236,15 @@ export const tools: Tool[] = [
       });
       if (!v.ok)
         return { name: "search_tickets", ok: false, error: v.error };
-      const results = searchTickets({
-        email: (args.email as string) || undefined,
-        subjectQuery: (args.subject_query as string) || undefined,
-      });
+      const results = isJiraConfigured()
+        ? await jiraSearchTickets({
+            email: (args.email as string) || undefined,
+            subjectQuery: (args.subject_query as string) || undefined,
+          })
+        : searchTickets({
+            email: (args.email as string) || undefined,
+            subjectQuery: (args.subject_query as string) || undefined,
+          });
       return {
         name: "search_tickets",
         ok: true,

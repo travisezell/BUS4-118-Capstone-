@@ -96,12 +96,13 @@ src/
   data/
     tickets.ts       In memory ticket store
   lib/
-    chroma.ts        Vector store client
+    vector-store.ts  Vector store client
+    jira.ts          Jira REST API v3 client
     llm.ts           Pluggable LLM provider abstraction
     metrics.ts       Telemetry
   mcp/
     server.ts        In process MCP server wrapper
-    tools.ts         Four tool definitions with JSON schemas
+    tools.ts         Five tool definitions with JSON schemas
 app/
   page.tsx           Chat UI with status indicator
   api/
@@ -111,7 +112,6 @@ app/
 scripts/
   ingest.ts          Loads docs/kb/*.md, chunks, embeds, indexes in Chroma
   mcp-server.ts      Standalone MCP server for external clients
-  mcp-demo.ts        Demonstrates MCP client connection
 docs/
   kb/                The IT knowledge base (4 markdown files, 22 chunks)
   diagrams/          User journey and architecture diagrams
@@ -189,7 +189,7 @@ We compared three industry vendors to inform our scope and design choices. Full 
 
 ## Test methodology
 
-We wrote 18 end to end test scenarios covering all three core flows plus edge cases. Each test sends a real prompt through the orchestrator and asserts on:
+We wrote 22 end-to-end test scenarios covering all three core flows plus edge cases and multi-turn memory. Each test sends a real prompt through the orchestrator and asserts on:
 
 - Intent classification (which agent should handle it)
 - Confidence score (within an expected band)

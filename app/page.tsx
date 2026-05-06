@@ -4,6 +4,12 @@ import { useEffect, useRef, useState } from "react";
 
 type Role = "user" | "assistant";
 
+interface ToolResultMeta {
+  name: string;
+  ok: boolean;
+  error?: string;
+}
+
 interface ChatMessage {
   id?: string;
   role: Role;
@@ -12,15 +18,15 @@ interface ChatMessage {
     intent?: string;
     confidence?: number;
     sources?: string[];
+    toolResults?: ToolResultMeta[];
     escalated?: boolean;
+    escalationReason?: string;
     latencyMs?: number;
     statusTrace?: { kind: string; label: string }[];
   };
 }
 
 // Mirror of the StreamEvent union exported by the orchestrator.
-// Kept narrow on the UI side because we only need the discriminator
-// and a handful of fields.
 type StreamEvent =
   | { kind: "status"; label: string; stage: string; node: string }
   | {
@@ -30,7 +36,7 @@ type StreamEvent =
       entities: Record<string, unknown>;
     }
   | { kind: "sources"; sources: string[] }
-  | { kind: "tools"; toolResults: unknown[] }
+  | { kind: "tools"; toolResults: ToolResultMeta[] }
   | { kind: "answer_chunk"; text: string }
   | {
       kind: "done";
@@ -39,23 +45,19 @@ type StreamEvent =
         intent: string;
         confidence: number;
         retrievedSources: string[];
+        toolResults: ToolResultMeta[];
         escalated: boolean;
+        escalationReason?: string;
         latencyMs: number;
       };
     }
   | { kind: "error"; message: string };
 
 const SAMPLE_PROMPTS: { label: string; prompt: string }[] = [
-  { label: "Access · Figma", prompt: "I need access to Figma for the design review" },
-  {
-    label: "Account · locked out",
-    prompt: "I'm locked out of my account",
-  },
-  { label: "Ticket · status", prompt: "What's the status of INC-1042?" },
-  {
-    label: "Q&A · password rules",
-    prompt: "What are the password requirements?",
-  },
+  { label: "🔑 Access · Figma", prompt: "I need access to Figma for the design review" },
+  { label: "🔒 Account · locked out", prompt: "I'm locked out of my account" },
+  { label: "🎫 Ticket · status", prompt: "What's the status of INC-1042?" },
+  { label: "❓ Q&A · passwords", prompt: "What are the password requirements?" },
 ];
 
 const WELCOME =
@@ -63,13 +65,6 @@ const WELCOME =
 
 // ─────────────────────────────────────────────────────────────────────
 // Live status stepper
-//
-// The orchestrator records the agent stages internally, but the response
-// is non-streaming — by the time the UI gets the trace, the request is
-// already done. So we predict the likely stages from the user's text and
-// step through them while the request is in flight. After the response
-// arrives we replace the prediction with the *real* trace so the user
-// sees what actually happened, including timing.
 // ─────────────────────────────────────────────────────────────────────
 
 interface Stage {
@@ -78,78 +73,37 @@ interface Stage {
 }
 
 const STAGE_INTAKE: Stage = { label: "Classifying request…", ms: 250 };
-const STAGE_KNOWLEDGE: Stage = {
-  label: "Searching IT documentation…",
-  ms: 900,
-};
-const STAGE_WORKFLOW_ACCESS: Stage = {
-  label: "Submitting access request…",
-  ms: 700,
-};
-const STAGE_WORKFLOW_ACCOUNT: Stage = {
-  label: "Checking account recovery options…",
-  ms: 700,
-};
-const STAGE_WORKFLOW_TICKET: Stage = {
-  label: "Looking up ticket status…",
-  ms: 600,
-};
+const STAGE_KNOWLEDGE: Stage = { label: "Searching IT documentation…", ms: 900 };
+const STAGE_WORKFLOW_ACCESS: Stage = { label: "Submitting access request…", ms: 700 };
+const STAGE_WORKFLOW_ACCOUNT: Stage = { label: "Checking account recovery options…", ms: 700 };
+const STAGE_WORKFLOW_TICKET: Stage = { label: "Looking up ticket status…", ms: 600 };
 const STAGE_RESPOND: Stage = { label: "Composing response…", ms: 400 };
 
-/** Predict the agent flow from the user's message text. */
 function predictStages(message: string): Stage[] {
   const m = message.toLowerCase();
   const trimmed = message.trim();
 
-  // Greeting / non-help — system responds immediately, no doc search,
-  // no tool calls. Match the actual graph behavior.
   if (
-    /^(?:hi|hello|hey|yo|sup|hiya|howdy|good\s*(?:morning|afternoon|evening)|thanks?|thank\s*you|ok|okay|cool|test|\??)\s*[!.?]*\s*$/i.test(
-      trimmed
-    ) ||
+    /^(?:hi|hello|hey|yo|sup|hiya|howdy|good\s*(?:morning|afternoon|evening)|thanks?|thank\s*you|ok|okay|cool|test|\??)\s*[!.?]*\s*$/i.test(trimmed) ||
     /\bwhat (?:can|do) you (?:do|help)\b/.test(m) ||
     /\bwho are you\b/.test(m)
   ) {
     return [STAGE_INTAKE, STAGE_RESPOND];
   }
 
-  // Ticket status — usually the fastest path (skips Knowledge in the graph).
-  if (
-    /\b(?:inc|req|acc)-\d+\b/i.test(message) ||
-    /\b(?:status|ticket|update)\b/.test(m)
-  ) {
+  // Match explicit ticket IDs: INC-/REQ-/ACC- (mock store) or B1GC- (Jira project key).
+  if (/\b(?:inc|req|acc|b1gc)-\d+\b/i.test(message) || /\b(?:status|ticket|update)\b/.test(m)) {
     return [STAGE_INTAKE, STAGE_WORKFLOW_TICKET, STAGE_RESPOND];
   }
 
-  // Access — usually goes through Knowledge then Workflow.
-  if (
-    /\b(?:access|account.*to|provision|figma|slack|jira|github|notion|want to use|set me up)\b/.test(
-      m
-    )
-  ) {
-    return [
-      STAGE_INTAKE,
-      STAGE_KNOWLEDGE,
-      STAGE_WORKFLOW_ACCESS,
-      STAGE_RESPOND,
-    ];
+  if (/\b(?:access|account.*to|provision|figma|slack|jira|github|notion|want to use|set me up)\b/.test(m)) {
+    return [STAGE_INTAKE, STAGE_KNOWLEDGE, STAGE_WORKFLOW_ACCESS, STAGE_RESPOND];
   }
 
-  // Account help — Knowledge then conditionally Workflow.
-  if (
-    /\b(?:locked|lockout|password|sign[- ]?in|mfa|2fa|compromised|hacked|my account|can't log)\b/.test(
-      m
-    )
-  ) {
-    return [
-      STAGE_INTAKE,
-      STAGE_KNOWLEDGE,
-      STAGE_WORKFLOW_ACCOUNT,
-      STAGE_RESPOND,
-    ];
+  if (/\b(?:locked|lockout|password|sign[- ]?in|mfa|2fa|compromised|hacked|my account|can't log)\b/.test(m)) {
+    return [STAGE_INTAKE, STAGE_KNOWLEDGE, STAGE_WORKFLOW_ACCOUNT, STAGE_RESPOND];
   }
 
-  // General Q&A — just classify, retrieve, respond.
   return [STAGE_INTAKE, STAGE_KNOWLEDGE, STAGE_RESPOND];
 }
 
@@ -177,26 +131,13 @@ export default function Home() {
     setInput("");
     setPending(true);
 
-    // Predict the agent stages from the message as a fallback for the
-    // initial label. Once the stream starts, real server events take
-    // over and replace the prediction.
     const predicted = predictStages(userText);
     setStatusLabel(predicted[0].label);
 
-    // Insert a placeholder assistant message we'll update as tokens
-    // stream in. Using a unique ID is more reliable than tracking by
-    // index because React state updates are async.
-    const placeholderId = `pending-${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2, 8)}`;
+    const placeholderId = `pending-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     setMessages((prev) => [
       ...prev,
-      {
-        id: placeholderId,
-        role: "assistant",
-        content: "",
-        meta: { statusTrace: [] },
-      },
+      { id: placeholderId, role: "assistant", content: "", meta: { statusTrace: [] } },
     ]);
 
     try {
@@ -211,20 +152,16 @@ export default function Home() {
       });
 
       if (!res.ok || !res.body) {
-        const errBody = await res.json().catch(() => ({}));
+        const errBody = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(errBody.error ?? `HTTP ${res.status}`);
       }
 
-      // Server-Sent Events parser. Each event arrives as
-      //   data: <json>\n\n
-      // We accumulate partial lines and dispatch on each complete
-      // event boundary.
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
       const collectedTrace: { kind: string; label: string }[] = [];
       let answerText = "";
-      let finalMeta: ChatMessage["meta"] | null = null;
+      let partialMeta: ChatMessage["meta"] = { statusTrace: [] };
 
       while (true) {
         const { value, done } = await reader.read();
@@ -237,10 +174,9 @@ export default function Home() {
           buffer = buffer.slice(nlIdx + 2);
           if (!rawEvent.startsWith("data: ")) continue;
 
-          const json = rawEvent.slice(6);
           let event: StreamEvent;
           try {
-            event = JSON.parse(json) as StreamEvent;
+            event = JSON.parse(rawEvent.slice(6)) as StreamEvent;
           } catch {
             continue;
           }
@@ -250,35 +186,28 @@ export default function Home() {
             collectedTrace.push({ kind: event.stage, label: event.label });
           } else if (event.kind === "answer_chunk") {
             answerText += event.text;
-            // Update the placeholder message by ID.
             setMessages((prev) =>
               prev.map((m) =>
-                m.id === placeholderId
-                  ? { ...m, content: answerText }
-                  : m
+                m.id === placeholderId ? { ...m, content: answerText } : m
               )
             );
           } else if (event.kind === "intent") {
-            finalMeta = {
-              ...(finalMeta ?? {}),
-              intent: event.intent,
-              confidence: event.confidence,
-            };
+            partialMeta = { ...partialMeta, intent: event.intent, confidence: event.confidence };
           } else if (event.kind === "sources") {
-            finalMeta = { ...(finalMeta ?? {}), sources: event.sources };
+            partialMeta = { ...partialMeta, sources: event.sources };
           } else if (event.kind === "tools") {
-            // tools surface through the final done event
+            partialMeta = { ...partialMeta, toolResults: event.toolResults };
           } else if (event.kind === "done") {
-            finalMeta = {
+            partialMeta = {
               intent: event.final.intent,
               confidence: event.final.confidence,
               sources: event.final.retrievedSources,
+              toolResults: event.final.toolResults,
               escalated: event.final.escalated,
+              escalationReason: event.final.escalationReason,
               latencyMs: event.final.latencyMs,
               statusTrace: collectedTrace,
             };
-            // The done event carries the authoritative final answer.
-            // Use it to backfill in case any chunks were missed.
             answerText = event.final.answer;
           } else if (event.kind === "error") {
             throw new Error(event.message);
@@ -286,16 +215,11 @@ export default function Home() {
         }
       }
 
-      // Stream finished. Apply the final answer and metadata.
       setStatusLabel(null);
       setMessages((prev) =>
         prev.map((m) =>
           m.id === placeholderId
-            ? {
-                ...m,
-                content: answerText,
-                meta: finalMeta ?? { statusTrace: collectedTrace },
-              }
+            ? { ...m, content: answerText, meta: partialMeta }
             : m
         )
       );
@@ -319,27 +243,32 @@ export default function Home() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-3xl flex-col px-4 py-6 sm:py-10">
-      <header className="mb-4 sm:mb-6">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 font-semibold text-white">
-            IT
-          </div>
-          <div>
-            <h1 className="text-lg font-semibold leading-tight">
-              IT Support Assistant
-            </h1>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              Multi-agent · LangGraph · RAG · MCP · Group 5 BUS 118S
-            </p>
-          </div>
+    <main className="mx-auto flex min-h-[calc(100vh-3.5rem)] w-full max-w-3xl flex-col px-4 py-6 sm:py-8">
+      {/* Sample prompts — above the chat window for prominence */}
+      <div className="mb-3">
+        <p className="mb-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+          Quick start — pick a scenario:
+        </p>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {SAMPLE_PROMPTS.map((p) => (
+            <button
+              key={p.label}
+              type="button"
+              disabled={pending}
+              onClick={() => send(p.prompt)}
+              className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-left text-xs text-zinc-700 transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-blue-500 dark:hover:bg-blue-900/20 dark:hover:text-blue-300"
+            >
+              {p.label}
+            </button>
+          ))}
         </div>
-      </header>
+      </div>
 
+      {/* Chat scroll area */}
       <section
         ref={scrollRef}
         className="flex-1 space-y-4 overflow-y-auto rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
-        style={{ minHeight: 420 }}
+        style={{ minHeight: 380 }}
       >
         {messages.map((m, i) => (
           <MessageBubble key={i} message={m} />
@@ -352,20 +281,7 @@ export default function Home() {
         )}
       </section>
 
-      <div className="mt-3 flex flex-wrap gap-2">
-        {SAMPLE_PROMPTS.map((p) => (
-          <button
-            key={p.label}
-            type="button"
-            disabled={pending}
-            onClick={() => send(p.prompt)}
-            className="rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs text-zinc-700 transition hover:border-blue-400 hover:text-blue-700 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-blue-500 dark:hover:text-blue-300"
-          >
-            {p.label}
-          </button>
-        ))}
-      </div>
-
+      {/* Input */}
       <form
         className="mt-3 flex gap-2"
         onSubmit={(e) => {
@@ -390,8 +306,8 @@ export default function Home() {
       </form>
 
       <footer className="mt-3 text-center text-xs text-zinc-400 dark:text-zinc-500">
-        Real OpenAI + Chroma RAG · Live MCP tool integration · Mock ticket store. See <code>/api/metrics</code>{" "}
-        and <code>/api/health</code>.
+        LangGraph · RAG · Live MCP + Jira integration · Mock ticket store fallback. See{" "}
+        <code>/api/metrics</code> and <code>/api/health</code>.
       </footer>
     </main>
   );
@@ -399,6 +315,7 @@ export default function Home() {
 
 function MessageBubble({ message }: { message: ChatMessage }) {
   const isUser = message.role === "user";
+  const escalated = !isUser && message.meta?.escalated;
   return (
     <div className={isUser ? "flex justify-end" : "flex justify-start"}>
       <div
@@ -406,34 +323,61 @@ function MessageBubble({ message }: { message: ChatMessage }) {
           "max-w-[88%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
           isUser
             ? "bg-blue-600 text-white"
-            : message.meta?.escalated
+            : escalated
               ? "border border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900/60 dark:bg-amber-900/20 dark:text-amber-100"
               : "border border-zinc-200 bg-zinc-50 text-zinc-900 dark:border-zinc-800 dark:bg-zinc-800/50 dark:text-zinc-100",
         ].join(" ")}
       >
-        <div className="whitespace-pre-wrap">{renderContent(message.content)}</div>
-        {!isUser && message.meta && (
-          <MessageMeta meta={message.meta} />
+        {/* Escalation badge */}
+        {escalated && (
+          <div className="mb-2 flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-100 px-2.5 py-1.5 text-xs font-semibold text-amber-800 dark:border-amber-700 dark:bg-amber-900/40 dark:text-amber-200">
+            <span>🔴</span>
+            <span>Escalated to human IT</span>
+            {message.meta?.escalationReason && (
+              <span className="ml-1 font-normal text-amber-700 dark:text-amber-300">
+                — {message.meta.escalationReason}
+              </span>
+            )}
+          </div>
         )}
+        <div>{renderContent(message.content)}</div>
+        {!isUser && message.meta && <MessageMeta meta={message.meta} />}
       </div>
     </div>
   );
 }
 
-function MessageMeta({
-  meta,
-}: {
-  meta: NonNullable<ChatMessage["meta"]>;
-}) {
+function MessageMeta({ meta }: { meta: NonNullable<ChatMessage["meta"]> }) {
   const items: string[] = [];
   if (meta.intent) items.push(`intent: ${meta.intent}`);
   if (typeof meta.confidence === "number")
     items.push(`confidence: ${(meta.confidence * 100).toFixed(0)}%`);
-  if (typeof meta.latencyMs === "number")
-    items.push(`${meta.latencyMs} ms`);
-  if (meta.escalated) items.push("escalated");
+  if (typeof meta.latencyMs === "number") items.push(`${meta.latencyMs} ms`);
+
   return (
     <div className="mt-2 space-y-1.5">
+      {/* Tool call results */}
+      {meta.toolResults && meta.toolResults.length > 0 && (
+        <div className="flex flex-wrap gap-x-2 gap-y-1">
+          {meta.toolResults.map((r, i) => (
+            <span
+              key={i}
+              className={[
+                "inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[10px]",
+                r.ok
+                  ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
+                  : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
+              ].join(" ")}
+            >
+              <span>tool:</span>
+              <code>{r.name}</code>
+              <span>{r.ok ? "✓" : "✗"}</span>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Metadata row */}
       <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-zinc-500 dark:text-zinc-400">
         {items.map((t) => (
           <span key={t}>{t}</span>
@@ -444,6 +388,8 @@ function MessageMeta({
           </span>
         )}
       </div>
+
+      {/* Status trace */}
       {meta.statusTrace && meta.statusTrace.length > 0 && (
         <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-zinc-400 dark:text-zinc-500">
           {meta.statusTrace.map((e, idx) => (
@@ -461,63 +407,93 @@ function MessageMeta({
 }
 
 /**
- * Very small markdown-ish renderer: bold, inline code, line breaks.
- * Avoids pulling in a markdown library for a prototype.
+ * Markdown-ish renderer: bold, inline code, bullet lists, line breaks.
  */
 function renderContent(text: string): React.ReactNode {
-  const parts: React.ReactNode[] = [];
   const lines = text.split("\n");
-  lines.forEach((line, lineIdx) => {
-    // Tokenize bold and inline code per line.
-    const tokens: React.ReactNode[] = [];
-    let remaining = line;
-    let key = 0;
-    while (remaining.length > 0) {
-      const bold = remaining.match(/\*\*(.+?)\*\*/);
-      const code = remaining.match(/`([^`]+)`/);
+  const parts: React.ReactNode[] = [];
+  let listItems: React.ReactNode[] = [];
+  let lineIdx = 0;
 
-      type NextMatch = { index: number; len: number; node: React.ReactNode };
-      let nextMatch: NextMatch | null = null;
-      if (bold) {
-        nextMatch = {
-          index: bold.index ?? 0,
-          len: bold[0].length,
-          node: (
-            <strong key={`b-${lineIdx}-${key++}`} className="font-semibold">
-              {bold[1]}
-            </strong>
-          ),
-        };
-      }
-      if (code && (!nextMatch || (code.index ?? 0) < nextMatch.index)) {
-        nextMatch = {
-          index: code.index ?? 0,
-          len: code[0].length,
-          node: (
-            <code
-              key={`c-${lineIdx}-${key++}`}
-              className="rounded bg-zinc-200/80 px-1 py-0.5 text-[0.85em] font-mono dark:bg-zinc-700/60"
-            >
-              {code[1]}
-            </code>
-          ),
-        };
-      }
+  function flushList() {
+    if (listItems.length > 0) {
+      parts.push(
+        <ul key={`ul-${lineIdx}`} className="my-1 ml-4 list-disc space-y-0.5">
+          {listItems}
+        </ul>
+      );
+      listItems = [];
+    }
+  }
 
-      if (!nextMatch) {
-        tokens.push(remaining);
-        break;
+  for (const line of lines) {
+    const isBullet = /^[-*]\s+/.test(line);
+    if (isBullet) {
+      listItems.push(
+        <li key={`li-${lineIdx}`}>{inlineTokens(line.replace(/^[-*]\s+/, ""), lineIdx)}</li>
+      );
+    } else {
+      flushList();
+      if (line.trim() === "") {
+        parts.push(<br key={`br-${lineIdx}`} />);
+      } else {
+        parts.push(
+          <span key={`l-${lineIdx}`} className="block">
+            {inlineTokens(line, lineIdx)}
+          </span>
+        );
       }
-      if (nextMatch.index > 0) {
-        tokens.push(remaining.slice(0, nextMatch.index));
-      }
-      tokens.push(nextMatch.node);
-      remaining = remaining.slice(nextMatch.index + nextMatch.len);
     }
-    parts.push(<span key={`l-${lineIdx}`}>{tokens}</span>);
-    if (lineIdx < lines.length - 1) {
-      parts.push(<br key={`br-${lineIdx}`} />);
-    }
-  });
+    lineIdx++;
+  }
+  flushList();
   return parts;
+}
+
+/** Tokenize bold and inline code within a single line. */
+function inlineTokens(line: string, lineIdx: number): React.ReactNode[] {
+  const tokens: React.ReactNode[] = [];
+  let remaining = line;
+  let key = 0;
+  while (remaining.length > 0) {
+    const bold = remaining.match(/\*\*(.+?)\*\*/);
+    const code = remaining.match(/`([^`]+)`/);
+
+    type NextMatch = { index: number; len: number; node: React.ReactNode };
+    let nextMatch: NextMatch | null = null;
+    if (bold) {
+      nextMatch = {
+        index: bold.index ?? 0,
+        len: bold[0].length,
+        node: (
+          <strong key={`b-${lineIdx}-${key++}`} className="font-semibold">
+            {bold[1]}
+          </strong>
+        ),
+      };
+    }
+    if (code && (!nextMatch || (code.index ?? 0) < nextMatch.index)) {
+      nextMatch = {
+        index: code.index ?? 0,
+        len: code[0].length,
+        node: (
+          <code
+            key={`c-${lineIdx}-${key++}`}
+            className="rounded bg-zinc-200/80 px-1 py-0.5 text-[0.85em] font-mono dark:bg-zinc-700/60"
+          >
+            {code[1]}
+          </code>
+        ),
+      };
+    }
+
+    if (!nextMatch) {
+      tokens.push(remaining);
+      break;
+    }
+    if (nextMatch.index > 0) tokens.push(remaining.slice(0, nextMatch.index));
+    tokens.push(nextMatch.node);
+    remaining = remaining.slice(nextMatch.index + nextMatch.len);
+  }
+  return tokens;
 }

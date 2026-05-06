@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Enable class-based dark mode so the toggle can override OS preference. */
+@custom-variant dark (&:is(.dark *));
+
 :root {
   --background: #fafafa;
   --foreground: #18181b;

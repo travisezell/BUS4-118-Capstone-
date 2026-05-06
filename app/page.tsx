@@ -91,6 +91,7 @@ function predictStages(message: string): Stage[] {
     return [STAGE_INTAKE, STAGE_RESPOND];
   }
 
+  // Match explicit ticket IDs: INC-/REQ-/ACC- (mock store) or B1GC- (Jira project key).
   if (/\b(?:inc|req|acc|b1gc)-\d+\b/i.test(message) || /\b(?:status|ticket|update)\b/.test(m)) {
     return [STAGE_INTAKE, STAGE_WORKFLOW_TICKET, STAGE_RESPOND];
   }

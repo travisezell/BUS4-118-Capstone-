@@ -172,7 +172,7 @@ export default function TicketsPage() {
       ) : (
         <div className="relative flex gap-4">
           {/* Ticket table */}
-          <div className={`flex-1 overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900 ${selected ? "hidden sm:block" : ""}`}>
+          <div className={["flex-1 overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900", selected ? "hidden sm:block" : ""].join(" ")}>
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-zinc-100 bg-zinc-50 text-left text-xs font-medium text-zinc-500 dark:border-zinc-800 dark:bg-zinc-800/50 dark:text-zinc-400">

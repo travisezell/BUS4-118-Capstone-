@@ -56,7 +56,7 @@ type StreamEvent =
 const SAMPLE_PROMPTS: { label: string; prompt: string }[] = [
   { label: "🔑 Access · Figma", prompt: "I need access to Figma for the design review" },
   { label: "🔒 Account · locked out", prompt: "I'm locked out of my account" },
-  { label: "🎫 Ticket · status", prompt: "What's the status of INC-1042?" },
+  { label: "🎫 Ticket · status", prompt: "what's the status of that?" },
   { label: "❓ Q&A · passwords", prompt: "What are the password requirements?" },
 ];
 

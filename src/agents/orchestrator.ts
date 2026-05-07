@@ -355,7 +355,11 @@ function explainTicketSearch(state: GraphStateType): string | undefined {
 }
 
 function buildAccessAnswer(state: GraphStateType): string {
-  const result = state.toolResults?.[0];
+  // The access flow may run search_tickets first (duplicate check) then
+  // create_access_request. Pull the create result specifically.
+  const result =
+    state.toolResults?.find((r) => r.name === "create_access_request") ??
+    state.toolResults?.[0];
   const doc = state.groundedAnswer ?? "";
   if (!result) return doc || "I couldn't find a matching access policy.";
 

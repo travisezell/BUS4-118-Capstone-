@@ -129,13 +129,25 @@ export async function searchIssues(
   jql: string,
   maxResults = 50
 ): Promise<JiraSearchResult> {
-  const params = new URLSearchParams({
+  const body = {
     jql,
-    maxResults: String(maxResults),
-    fields:
-      "summary,status,assignee,reporter,issuetype,priority,created,updated,resolution",
+    maxResults,
+    fields: [
+      "summary",
+      "status",
+      "assignee",
+      "reporter",
+      "issuetype",
+      "priority",
+      "created",
+      "updated",
+      "resolution",
+    ],
+  };
+  return jiraFetch<JiraSearchResult>(`/rest/api/3/search/jql`, {
+    method: "POST",
+    body: JSON.stringify(body),
   });
-  return jiraFetch<JiraSearchResult>(`/rest/api/3/search?${params.toString()}`);
 }
 
 /**

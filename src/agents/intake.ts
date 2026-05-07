@@ -177,7 +177,7 @@ function any(haystack: string, needles: string[]): boolean {
 /** Extract a ticket-like identifier (e.g. INC-1042, TKT123, #501). */
 function extractTicketId(message: string): string | undefined {
   // Prefer alphanumeric IDs like INC-1042, TKT-99, TASK_42
-  const alpha = message.match(/\b([A-Z]{2,5}[-_]?\d{2,6})\b/);
+  const alpha = message.match(/\b([A-Z][A-Z0-9]{1,9}[-_]?\d{1,6})\b/);
   if (alpha) return alpha[1].toUpperCase();
 
   // Then #123 or "ticket 1042"
@@ -349,7 +349,7 @@ function findRecentTicketIdInHistory(
   for (let i = history.length - 1; i >= 0; i--) {
     const msg = history[i];
     if (msg.role !== "assistant") continue;
-    const match = msg.content.match(/\b([A-Z]{2,5}[-_]?\d{2,6})\b/);
+    const match = msg.content.match(/\b([A-Z][A-Z0-9]{1,9}[-_]?\d{1,6})\b/);
     if (match) return match[1].toUpperCase();
   }
   return undefined;

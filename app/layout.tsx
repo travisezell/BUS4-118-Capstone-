@@ -38,7 +38,10 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="min-h-full bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
+      <body 
+	className="min-h-full bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100"
+	suppressHydrationWarning
+	>
         <NavBar />
         <div className="pt-14">{children}</div>
       </body>

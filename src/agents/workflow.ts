@@ -7,7 +7,6 @@
  */
 
 import { mcpServer } from "../mcp/server";
-import { findOpenAccessRequestForUser } from "../data/tickets";
 import type { AgentState, ToolCall, ToolResult } from "./types";
 
 interface WorkflowResult {
@@ -46,7 +45,31 @@ export async function run(state: AgentState): Promise<WorkflowResult> {
       }
 
       // Duplicate-request guard — PRD §14.1 scenario 4.
-      const existing = findOpenAccessRequestForUser(userId, toolName);
+      // Query through MCP so it routes to Jira when configured, mock otherwise.
+      const dupSearchCall: ToolCall = {
+        name: "search_tickets",
+        args: { email: userId, subject_query: toolName },
+      };
+      const dupSearchResult = await mcpServer.call(
+        dupSearchCall.name,
+        dupSearchCall.args
+      );
+      const dupData = dupSearchResult.data as
+        | {
+            count: number;
+            tickets: Array<{ id: string; state: string; summary: string }>;
+          }
+        | undefined;
+      const existing = dupData?.tickets?.find((t) => {
+        // Match if the ticket summary contains the tool name (case-insensitive)
+        // and the ticket isn't closed/resolved.
+        const summary = (t.summary ?? "").toLowerCase();
+        const tool = toolName.toLowerCase();
+        const isOpen = !["closed", "resolved", "done"].includes(
+          (t.state ?? "").toLowerCase()
+        );
+        return isOpen && summary.includes(tool);
+      });
       if (existing) {
         const dupResult: ToolResult = {
           name: "create_access_request",
@@ -59,8 +82,14 @@ export async function run(state: AgentState): Promise<WorkflowResult> {
           },
         };
         return {
-          toolCalls: [{ name: "create_access_request", args: { app_name: toolName, user_id: userId } }],
-          toolResults: [dupResult],
+          toolCalls: [
+            dupSearchCall,
+            {
+              name: "create_access_request",
+              args: { app_name: toolName, user_id: userId },
+            },
+          ],
+          toolResults: [dupSearchResult, dupResult],
           needsEscalation: false,
         };
       }

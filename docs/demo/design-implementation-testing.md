@@ -177,7 +177,7 @@ This is what we mean by multi agent collaboration. No single agent could have pr
 
 ## Industry vendor research
 
-We compared three industry vendors to inform our scope and design choices. Full notes in [`docs/SCALING.md`](SCALING.md).
+We compared three industry vendors to inform our scope and design choices. Full notes in [`docs/research/SCALING.md`](../research/SCALING.md).
 
 - **Moveworks.** Purpose built employee IT assistant. Validated our four agent decomposition and the intake to knowledge to workflow to escalation pipeline. Their tier based escalation model influenced our Tier 1 and Tier 2 split.
 - **ServiceNow Now Assist.** Generative AI layer on top of an ITSM. Validated MCP style tool calling for ticket actions and reinforced that grounding answers in your own knowledge base, rather than the open web, is what makes IT assistants trustworthy.
@@ -199,7 +199,7 @@ We wrote 22 end-to-end test scenarios covering all three core flows plus edge ca
 
 Tests run via `npm test`. They use the in process MCP server for speed and a deterministic seeded ticket store for reproducibility. The aggregate metrics are printed at the end of each run.
 
-The full per scenario results table is in [`docs/test-results.md`](test-results.md). High level numbers are below.
+The full per scenario results table is in [`docs/operations/test-results.md`](../operations/test-results.md). High level numbers are below.
 
 ## Results summary
 

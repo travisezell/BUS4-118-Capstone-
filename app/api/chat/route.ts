@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import {
   handleMessage,
   handleMessageStreaming,
-} from "@/src/agents/orchestrator";
-import type { Message } from "@/src/agents/types";
+  type Message,
+} from "@/src/application/api/chat";
 
 export const runtime = "nodejs";
 
@@ -45,9 +45,6 @@ export async function POST(req: Request) {
     );
   }
 
-  // Streaming path (Server-Sent Events). Opt-in via ?stream=1.
-  // Keeps the JSON path as the safe default for backwards compatibility
-  // and for the tests, which run synchronously.
   const url = new URL(req.url);
   const isStream = url.searchParams.get("stream") === "1";
 
@@ -57,7 +54,6 @@ export async function POST(req: Request) {
       async start(controller) {
         try {
           for await (const event of handleMessageStreaming(trimmed, history)) {
-            // SSE format: each event is `data: <json>\n\n`.
             const payload = `data: ${JSON.stringify(event)}\n\n`;
             controller.enqueue(encoder.encode(payload));
           }
@@ -80,12 +76,11 @@ export async function POST(req: Request) {
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache, no-transform",
         Connection: "keep-alive",
-        "X-Accel-Buffering": "no", // disable proxy buffering
+        "X-Accel-Buffering": "no",
       },
     });
   }
 
-  // Non-streaming JSON path (default).
   const result = await handleMessage(trimmed, history);
   return NextResponse.json({
     response: result.answer,

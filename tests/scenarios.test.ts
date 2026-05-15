@@ -14,8 +14,8 @@
  */
 
 import { describe, it, expect, afterAll, beforeAll } from "vitest";
-import { handleMessage } from "../src/agents/orchestrator";
-import { reset, summarize } from "../src/lib/metrics";
+import { handleMessage } from "../src/application/agents/orchestrator";
+import { reset, summarize } from "../src/infrastructure/lib/metrics";
 
 beforeAll(() => {
   reset();

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { updateTicketWithNote } from "@/src/data/tickets";
-import { isJiraConfigured, jiraUpdateTicketWithNote } from "@/src/data/jira-adapter";
+import { addTicketNoteForApi } from "@/src/application/api/tickets";
 
 export const runtime = "nodejs";
 
@@ -25,10 +24,7 @@ export async function POST(
     );
   }
 
-  const ok = isJiraConfigured()
-    ? await jiraUpdateTicketWithNote(id, note.trim())
-    : updateTicketWithNote(id, note.trim());
-
+  const ok = await addTicketNoteForApi(id, note.trim());
   if (!ok) {
     return NextResponse.json(
       { error: `Ticket not found: ${id}` },

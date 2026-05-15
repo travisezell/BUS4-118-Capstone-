@@ -20,9 +20,9 @@
 
 import { readdir, readFile } from "node:fs/promises";
 import { join, basename, extname } from "node:path";
-import { vectorStore } from "../src/lib/vector-store";
-import { llm } from "../src/lib/llm";
-import type { KBChunk } from "../src/data/knowledge-base";
+import { vectorStore } from "../src/infrastructure/lib/vector-store";
+import { llm } from "../src/infrastructure/lib/llm";
+import type { KBChunk } from "../src/domain/data/knowledge-base";
 
 const KB_DIR = join(process.cwd(), "docs", "kb");
 

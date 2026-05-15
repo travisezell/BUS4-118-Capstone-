@@ -32,7 +32,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import * as z from "zod";
 
-import { tools as toolDefs } from "../src/mcp/tools";
+import { tools as toolDefs } from "../src/infrastructure/mcp/tools";
 
 /**
  * Build a Zod input schema from our internal `Schema` shape. The SDK's
@@ -40,7 +40,7 @@ import { tools as toolDefs } from "../src/mcp/tools";
  * runtime then handles JSON Schema generation and validation for us.
  */
 function buildZodSchema(
-  schema: import("../src/mcp/tools").Schema
+  schema: import("../src/infrastructure/mcp/tools").Schema
 ): Record<string, z.ZodType> {
   const out: Record<string, z.ZodType> = {};
   for (const [key, def] of Object.entries(schema)) {

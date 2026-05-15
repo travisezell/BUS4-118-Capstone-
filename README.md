@@ -64,7 +64,7 @@ Three IT flows are fully implemented end-to-end (access help, account help, tick
          └──────────────────────────────────┘
 ```
 
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for component-level detail and message flow. A polished slide-ready diagram is in [`docs/diagrams/architecture.png`](docs/diagrams/architecture.png).
+See [`docs/architecture/ARCHITECTURE.md`](docs/architecture/ARCHITECTURE.md) for component-level detail and message flow. A polished slide-ready diagram is in [`docs/diagrams/architecture.png`](docs/diagrams/architecture.png).
 
 ---
 
@@ -196,62 +196,70 @@ A few things to expect on Path C:
 
 ```
 app/
-  api/
-    chat/route.ts          # Main chat endpoint, orchestrates the 4 agents
-    tickets/route.ts       # List tickets
-    tickets/[id]/route.ts  # Read a single ticket
-    metrics/route.ts       # Aggregate and per-flow metrics endpoint
-    health/route.ts        # Reports active LLM, vector store, MCP tools
-  page.tsx                 # Chat UI with intent + confidence + sources display
-  layout.tsx               # Root layout
-  globals.css              # Tailwind theme
+  api/                         # Thin route handlers (delegate to src/application/api)
+  features/
+    chat/ChatPage.tsx          # Chat UI feature module
+    tickets/TicketsPage.tsx    # Tickets UI feature module
+  types/support.ts             # Shared UI-facing support types
+  components/NavBar.tsx
+  page.tsx                     # Chat route entry (thin wrapper)
+  tickets/page.tsx             # Tickets route entry (thin wrapper)
 
 src/
+  application/
+    agents/                    # Intake, Knowledge, Workflow, Escalation, orchestrator
+    api/                       # Stable app-service boundaries for API routes
+  domain/
+    data/                      # Ticket domain data + KB chunk model/seed data
+  infrastructure/
+    lib/                       # LLM, vector store, metrics, Jira client
+    mcp/                       # MCP tool catalog and server
+
+  # Compatibility re-exports during migration:
   agents/
-    types.ts               # Shared agent state and types
-    intake.ts              # Intent classification and entity extraction
-    knowledge.ts           # RAG retrieval and grounded answer synthesis
-    workflow.ts            # Tool calls via MCP server
-    escalation.ts          # Human handoff logic
-    orchestrator.ts        # LangGraph StateGraph wiring all four agents
-  lib/
-    llm.ts                 # LLMProvider interface, MockProvider, OpenAIProvider
-    vector-store.ts        # VectorStore interface, InMemoryVectorStore, ChromaVectorStore
-    metrics.ts             # In-memory metrics logger with per-flow breakdowns
-  mcp/
-    tools.ts               # 5 IT tool definitions (name, schema, handler)
-    server.ts              # In-process server and StdioMCPClient (real MCP)
   data/
-    knowledge-base.ts      # Default in-memory KB (used in mock mode)
-    tickets.ts             # In-memory ticket store with seeded scenarios
+  lib/
+  mcp/
 
 tests/
-  scenarios.test.ts        # 19 end-to-end scenarios
+  scenarios.test.ts
 
 scripts/
-  ingest.ts                # Loads docs/kb/*.md, chunks, embeds, indexes in Chroma
-  mcp-server.ts            # Standalone MCP server (stdio transport)
+  ingest.ts
+  mcp-server.ts
 
 docs/
-  ARCHITECTURE.md                   # Component-level detail
-  TESTING.md                        # Test design and scenarios documented
-  SCALING.md                        # Vendor research (Moveworks, ServiceNow Now Assist, Glean)
-  handoff-flows.md                  # Per-scenario agent handoff narrative
-  test-results.md                   # All 22 test results with metrics
-  design-implementation-testing.md  # Unified design + impl + testing document
-  sample-conversations.md           # Demo scripts for the live walkthrough
-  diagrams/                         # User journey and architecture diagrams (PNG)
-  wireframes/                       # 4 chat UI wireframes (SVG with annotations)
-  screenshots/                      # 10 demo screenshots
-  kb/                               # Source IT documentation (markdown)
-    access-policies.md
-    account-guidance.md
-    ticket-faqs.md
-    general-it-faqs.md
-
-docker-compose.yml         # Chroma service for local development
-.env.example               # Environment variable template
+  architecture/
+    ARCHITECTURE.md
+    REPO-ORGANIZATION.md
+  operations/
+    TESTING.md
+    test-results.md
+  research/
+    SCALING.md
+  demo/
+    handoff-flows.md
+    sample-conversations.md
+    design-implementation-testing.md
+  diagrams/
+  wireframes/
+  screenshots/
+  kb/                          # Source markdown used by `npm run ingest`
 ```
+
+
+
+## Where to put new code
+
+- **New orchestration/use-case logic:** `src/application/*`
+- **Business/domain rules and data shape changes:** `src/domain/*`
+- **External system adapters (APIs, protocols, stores):** `src/infrastructure/*`
+- **Route-level server handlers:** keep in `app/api/*` and delegate to `src/application/api/*`
+- **Client UI logic:** `app/features/*`; keep route files (`app/page.tsx`, `app/tickets/page.tsx`) thin
+- **Operational docs/runbooks:** `docs/operations/*`
+- **Architecture/design docs:** `docs/architecture/*`
+- **Demo collateral:** `docs/demo/*`, `docs/diagrams/*`, `docs/wireframes/*`, `docs/screenshots/*`
+- **RAG source docs for ingestion:** `docs/kb/*`
 
 ---
 
@@ -272,7 +280,7 @@ The test suite covers:
 
 Per-flow metrics (routing accuracy, retrieval hit rate, auto-resolve rate, escalation rate, average latency) are tracked separately for each of the three core flows and exposed at `/api/metrics` under `perFlow`.
 
-See [`docs/test-results.md`](docs/test-results.md) for the full per-scenario results table and [`docs/TESTING.md`](docs/TESTING.md) for the test design rationale.
+See [`docs/operations/test-results.md`](docs/operations/test-results.md) for the full per-scenario results table and [`docs/operations/TESTING.md`](docs/operations/TESTING.md) for the test design rationale.
 
 Tests run against the mock providers so they pass on a fresh clone with no API key. That's intentional. The real RAG path is reserved for the live demo.
 
@@ -335,7 +343,7 @@ A few decisions worth knowing about. These are honest engineering trade-offs, no
 
 ## Vendor research
 
-We compared three industry incumbents to inform our scope and design choices. Full notes in [`docs/SCALING.md`](docs/SCALING.md).
+We compared three industry incumbents to inform our scope and design choices. Full notes in [`docs/research/SCALING.md`](docs/research/SCALING.md).
 
 - **Moveworks.** Purpose-built employee IT assistant. Validated our 4-agent decomposition and the Intake → Knowledge → Workflow → Escalation pipeline. Their tier-based escalation model influenced our Tier 1 / Tier 2 / Security split.
 - **ServiceNow Now Assist.** Generative AI layer on top of an ITSM. Validated MCP-style tool calling for ticket actions and reinforced that grounding answers in your own knowledge base (rather than the open web) is what makes IT assistants trustworthy.

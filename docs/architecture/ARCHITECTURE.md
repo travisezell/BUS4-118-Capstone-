@@ -232,4 +232,4 @@ Every request logs:
 - Final decision (resolved vs. escalated).
 - Latency per request.
 
-Metrics are summarized in `docs/TESTING.md` and exposed at `GET /api/metrics`.
+Metrics are summarized in `docs/operations/TESTING.md` and exposed at `GET /api/metrics`.

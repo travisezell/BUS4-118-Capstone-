@@ -67,11 +67,20 @@ export default function TicketsPage() {
   }, []);
 
   useEffect(() => {
-    void loadTickets();
+    const bootstrapId = setTimeout(() => {
+      void loadTickets();
+    }, 0);
+
     const id = setInterval(() => {
-      if (!document.hidden) void loadTickets();
+      if (!document.hidden) {
+        void loadTickets();
+      }
     }, 30_000);
-    return () => clearInterval(id);
+
+    return () => {
+      clearTimeout(bootstrapId);
+      clearInterval(id);
+    };
   }, [loadTickets]);
 
   const filtered = tickets.filter(

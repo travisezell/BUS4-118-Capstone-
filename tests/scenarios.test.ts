@@ -24,9 +24,7 @@ beforeAll(() => {
 afterAll(() => {
   const s = summarize();
   // Print the aggregate summary so a CI run captures it.
-  // eslint-disable-next-line no-console
   console.log("\n=== Aggregate Metrics (PRD §13) ===");
-  // eslint-disable-next-line no-console
   console.log(JSON.stringify(s, null, 2));
 });
 

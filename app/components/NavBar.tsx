@@ -2,16 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 export default function NavBar() {
   const pathname = usePathname();
-  const [dark, setDark] = useState(false);
-
-  // Sync with the class applied by the anti-FOUC script.
-  useEffect(() => {
-    setDark(document.documentElement.classList.contains("dark"));
-  }, []);
+  const [dark, setDark] = useState(() =>
+    typeof document !== "undefined"
+      ? document.documentElement.classList.contains("dark")
+      : false
+  );
 
   function toggleTheme() {
     const next = !dark;
